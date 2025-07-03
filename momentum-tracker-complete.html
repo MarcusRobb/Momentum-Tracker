@@ -172,6 +172,137 @@
         </svg>
       );
 
+      const DownloadIcon = ({ className }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+      );
+
+      // CSV Export Utilities
+      const downloadCSV = (data, filename) => {
+        const blob = new Blob([data], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+
+      const arrayToCSV = (array) => {
+        if (!array || array.length === 0) return '';
+
+        const headers = Object.keys(array[0]);
+        const csvHeaders = headers.join(',');
+
+        const csvRows = array.map(row =>
+          headers.map(header => {
+            const value = row[header];
+            // Escape quotes and wrap in quotes if contains comma, quote, or newline
+            if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
+              return `"${value.replace(/"/g, '""')}"`;
+            }
+            return value;
+          }).join(',')
+        );
+
+        return [csvHeaders, ...csvRows].join('\n');
+      };
+
+      const exportLapsData = (lapsHistory) => {
+        if (!lapsHistory || lapsHistory.length === 0) {
+          alert('No LAPS data to export');
+          return;
+        }
+
+        const csvData = arrayToCSV(lapsHistory);
+        const filename = `laps-data-${new Date().toISOString().split('T')[0]}.csv`;
+        downloadCSV(csvData, filename);
+      };
+
+      const exportAccountabilityData = (accountabilityHistory) => {
+        if (!accountabilityHistory || accountabilityHistory.length === 0) {
+          alert('No accountability data to export');
+          return;
+        }
+
+        const csvData = arrayToCSV(accountabilityHistory);
+        const filename = `accountability-data-${new Date().toISOString().split('T')[0]}.csv`;
+        downloadCSV(csvData, filename);
+      };
+
+      const exportCompletedTasks = (completedHistory) => {
+        if (!completedHistory || completedHistory.length === 0) {
+          alert('No completed tasks to export');
+          return;
+        }
+
+        const tasksForExport = completedHistory.map(task => ({
+          task: task.text,
+          completed_date: new Date(task.completedAt).toLocaleDateString(),
+          completed_time: new Date(task.completedAt).toLocaleTimeString(),
+          was_income_generating: task.isIncomeGenerating ? 'Yes' : 'No',
+          notes: task.notes || '',
+          scheduled_time: task.scheduledTime || '',
+          duration_minutes: task.duration || ''
+        }));
+
+        const csvData = arrayToCSV(tasksForExport);
+        const filename = `completed-tasks-${new Date().toISOString().split('T')[0]}.csv`;
+        downloadCSV(csvData, filename);
+      };
+
+      const exportAllData = (lapsHistory, accountabilityHistory, completedHistory, brainDump, topThree, ideasVault) => {
+        const timestamp = new Date().toISOString().split('T')[0];
+
+        // Create a comprehensive export
+        const summary = {
+          export_date: new Date().toLocaleDateString(),
+          export_time: new Date().toLocaleTimeString(),
+          total_laps_entries: lapsHistory.length,
+          total_accountability_entries: accountabilityHistory.length,
+          total_completed_tasks: completedHistory.length,
+          current_brain_dump_tasks: brainDump.length,
+          current_top_three_tasks: topThree.length,
+          ideas_in_vault: ideasVault.length
+        };
+
+        let csvContent = '=== MOMENTUM TRACKER DATA EXPORT ===\n\n';
+        csvContent += '=== SUMMARY ===\n';
+        csvContent += arrayToCSV([summary]) + '\n\n';
+
+        if (lapsHistory.length > 0) {
+          csvContent += '=== LAPS DATA ===\n';
+          csvContent += arrayToCSV(lapsHistory) + '\n\n';
+        }
+
+        if (accountabilityHistory.length > 0) {
+          csvContent += '=== ACCOUNTABILITY DATA ===\n';
+          csvContent += arrayToCSV(accountabilityHistory) + '\n\n';
+        }
+
+        if (completedHistory.length > 0) {
+          csvContent += '=== COMPLETED TASKS ===\n';
+          const tasksForExport = completedHistory.map(task => ({
+            task: task.text,
+            completed_date: new Date(task.completedAt).toLocaleDateString(),
+            completed_time: new Date(task.completedAt).toLocaleTimeString(),
+            was_income_generating: task.isIncomeGenerating ? 'Yes' : 'No',
+            notes: task.notes || '',
+            scheduled_time: task.scheduledTime || '',
+            duration_minutes: task.duration || ''
+          }));
+          csvContent += arrayToCSV(tasksForExport) + '\n\n';
+        }
+
+        const filename = `momentum-tracker-full-export-${timestamp}.csv`;
+        downloadCSV(csvContent, filename);
+      };
+
       // Gemini Modal Component
       const GeminiModal = ({ task, onClose }) => {
         const [prompt, setPrompt] = useState('');
@@ -469,6 +600,16 @@
                 >
                   Next Week →
                 </button>
+                {accountabilityHistory.length > 0 && (
+                  <button
+                    onClick={() => exportAccountabilityData(accountabilityHistory)}
+                    className="px-3 py-1 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    title="Export accountability data to CSV"
+                  >
+                    <DownloadIcon className="w-4 h-4 inline mr-1" />
+                    Export
+                  </button>
+                )}
                 {isCurrentWeek && !isWeekFinalized && (
                   <button
                     onClick={handleFinalizeWeek}
@@ -850,13 +991,25 @@
 
             {/* History */}
             <div>
-              <button
-                onClick={() => setShowHistory(!showHistory)}
-                className="w-full flex justify-between items-center text-left text-lg font-semibold text-slate-700 focus:outline-none mb-4"
-              >
-                <span>LAPS History ({lapsHistory.length} days)</span>
-                <ChevronDownIcon className={`w-5 h-5 transform transition-transform ${showHistory ? 'rotate-180' : ''}`} />
-              </button>
+              <div className="flex justify-between items-center mb-4">
+                <button
+                  onClick={() => setShowHistory(!showHistory)}
+                  className="flex items-center text-left text-lg font-semibold text-slate-700 focus:outline-none"
+                >
+                  <span>LAPS History ({lapsHistory.length} days)</span>
+                  <ChevronDownIcon className={`w-5 h-5 ml-2 transform transition-transform ${showHistory ? 'rotate-180' : ''}`} />
+                </button>
+                {lapsHistory.length > 0 && (
+                  <button
+                    onClick={() => exportLapsData(lapsHistory)}
+                    className="flex items-center gap-2 px-3 py-1 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    title="Export LAPS data to CSV"
+                  >
+                    <DownloadIcon className="w-4 h-4" />
+                    Export CSV
+                  </button>
+                )}
+              </div>
               {showHistory && (
                 <div className="overflow-x-auto rounded-lg border border-slate-200">
                   <table className="min-w-full divide-y divide-slate-200">
@@ -1292,12 +1445,22 @@
                 <div className="flex items-center gap-3">
                   <h1 className="text-2xl font-bold text-slate-800">Momentum Tracker</h1>
                 </div>
-                <button
-                  onClick={startNewDay}
-                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                >
-                  Start New Day
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => exportAllData(lapsHistory, accountabilityHistory, completedHistory, brainDump, topThree, ideasVault)}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    title="Export all your data to CSV"
+                  >
+                    <DownloadIcon className="w-4 h-4" />
+                    Export All Data
+                  </button>
+                  <button
+                    onClick={startNewDay}
+                    className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  >
+                    Start New Day
+                  </button>
+                </div>
               </div>
             </header>
             <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -1419,13 +1582,25 @@
 
               {/* Completed History */}
               <div className="bg-white p-6 rounded-lg shadow-md mb-8">
-                <button
-                  onClick={() => setShowCompleted(!showCompleted)}
-                  className="w-full flex justify-between items-center text-left text-xl font-bold text-slate-800 focus:outline-none"
-                >
-                  <span>✅ Completed Task History ({completedHistory.length})</span>
-                  <ChevronDownIcon className={`w-6 h-6 transform transition-transform ${showCompleted ? 'rotate-180' : ''}`} />
-                </button>
+                <div className="flex justify-between items-center">
+                  <button
+                    onClick={() => setShowCompleted(!showCompleted)}
+                    className="flex items-center text-left text-xl font-bold text-slate-800 focus:outline-none"
+                  >
+                    <span>✅ Completed Task History ({completedHistory.length})</span>
+                    <ChevronDownIcon className={`w-6 h-6 ml-2 transform transition-transform ${showCompleted ? 'rotate-180' : ''}`} />
+                  </button>
+                  {completedHistory.length > 0 && (
+                    <button
+                      onClick={() => exportCompletedTasks(completedHistory)}
+                      className="flex items-center gap-2 px-3 py-1 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      title="Export completed tasks to CSV"
+                    >
+                      <DownloadIcon className="w-4 h-4" />
+                      Export CSV
+                    </button>
+                  )}
+                </div>
                 {showCompleted && completedHistory.length > 0 && (
                   <div className="mt-4 space-y-2">
                     {completedHistory.slice(0, 10).map(task => (
