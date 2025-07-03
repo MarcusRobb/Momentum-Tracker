@@ -23,6 +23,7 @@ const GeminiModal: React.FC<GeminiModalProps> = ({ task, onClose }) => {
     };
     window.addEventListener('keydown', handleEsc);
     
+    // Focus the first focusable element when the modal opens
     const focusableElements = modalRef.current?.querySelectorAll('button, textarea');
     (focusableElements?.[0] as HTMLElement)?.focus();
     
@@ -166,3 +167,5 @@ const GeminiModal: React.FC<GeminiModalProps> = ({ task, onClose }) => {
     </div>
   );
 };
+
+export default GeminiModal;
