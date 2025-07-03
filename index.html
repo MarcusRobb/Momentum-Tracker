@@ -2,26 +2,40 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Momentum: Time Boxing & LAPS Tracker</title>
+    <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Add Babel for in-browser JSX/TSX transformation -->
+    <!-- Babel for on-the-fly TSX/JSX transformation -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script type="importmap">
-      {
-        "imports": {
-          "react-dom/": "https://esm.sh/react-dom@^18.2.0/",
-          "react/": "https://esm.sh/react@^18.2.0/",
-          "react": "https://esm.sh/react@^18.2.0",
-          "@google/genai": "https://esm.sh/@google/genai@^1.8.0"
-        }
-      }
-    </script>
   </head>
-  <body class="bg-slate-100 font-sans antialiased">
+  <body>
+    <!-- The root element for the React app. This was missing. -->
     <div id="root"></div>
-    <!-- Change script type to text/babel and add presets for Babel to process it -->
-    <script type="text/babel" data-presets="react,typescript" data-type="module" src="/index.tsx"></script>
+
+    <!-- Import Map for managing JS modules -->
+    <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.2.0",
+    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+    "@google/genai": "https://esm.sh/@google/genai@^1.8.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
+    "react/": "https://esm.sh/react@^19.1.0/"
+  }
+}
+</script>
+
+    <!--
+      Main application script.
+      'type="text/babel"' tells Babel to transform it.
+      'data-presets' tells Babel how to transform (for React and TypeScript).
+      'src="./index.tsx"' points to the main entry file.
+    -->
+    <script
+      type="text/babel"
+      data-presets="react,typescript"
+      src="./index.tsx"
+    ></script>
   </body>
 </html>
