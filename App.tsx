@@ -9,6 +9,19 @@ import Reports from './components/Reports';
 import GeminiModal from './components/GeminiModal';
 import { PlusIcon, TrashIcon, ArrowUpCircleIcon, ArrowDownCircleIcon, DollarSignIcon, CalendarIcon, RestoreIcon, ChevronDownIcon, LightbulbIcon, SparkleIcon, ChevronUpIcon } from './components/Icons';
 
+// UUID generation with fallback for older browsers
+const generateUUID = (): string => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback for older browsers
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
 const TaskCard: React.FC<{
   task: Task;
   onUpdate: (updatedTask: Task) => void;
@@ -165,7 +178,7 @@ const App: React.FC = () => {
     e.preventDefault();
     if (newTaskText.trim() === '') return;
     const newTask: Task = {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       text: newTaskText,
       isCompleted: false,
       isIncomeGenerating: false,
@@ -239,7 +252,7 @@ const App: React.FC = () => {
   const handleCopyFromVault = (id: string) => {
     const taskToCopy = ideasVault.find(t => t.id === id);
     if (taskToCopy) {
-      const newActionableTask = { ...taskToCopy, id: crypto.randomUUID() };
+      const newActionableTask = { ...taskToCopy, id: generateUUID() };
       setBrainDump(prev => [newActionableTask, ...prev]);
       alert(`Copied "${taskToCopy.text}" to Brain Dump.`);
     }
