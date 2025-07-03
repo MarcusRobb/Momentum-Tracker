@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root" class="p-8">
+        <h1 class="text-3xl font-bold text-blue-600">Testing...</h1>
+        <p class="text-gray-600">If you can see this, basic HTML/CSS is working.</p>
+        <button id="testBtn" class="bg-blue-500 text-white px-4 py-2 rounded mt-4">Click Me</button>
+        <div id="result" class="mt-4"></div>
+    </div>
+
+    <script>
+        console.log('JavaScript is running!');
+        
+        document.getElementById('testBtn').addEventListener('click', function() {
+            document.getElementById('result').innerHTML = '<p class="text-green-600 font-bold">JavaScript is working!</p>';
+            console.log('Button clicked successfully');
+        });
+        
+        // Test if we can load external resources
+        console.log('Tailwind CSS loaded:', !!window.tailwind || document.querySelector('script[src*="tailwind"]') !== null);
+    </script>
+</body>
+</html>
