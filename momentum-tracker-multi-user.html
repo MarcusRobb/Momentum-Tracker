@@ -486,6 +486,56 @@
         </svg>
       );
 
+      const EditIcon = ({ className }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+        </svg>
+      );
+
+      const ClipboardCopyIcon = ({ className }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+      );
+
+      const DownloadIcon = ({ className }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+      );
+
+      const RestoreIcon = ({ className }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <path d="M9 14l-4-4 4-4"></path>
+          <path d="M5 10h11a4 4 0 0 1 4 4v1"></path>
+        </svg>
+      );
+
+      const LightbulbIcon = ({ className }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <path d="M9 18h6"></path>
+          <path d="M10 22h4"></path>
+          <path d="M12 2a7 7 0 0 0-7 7c0 3.03 1.09 5.4 2.78 6.88L12 22l4.22-6.12C17.91 14.4 19 11.03 19 9a7 7 0 0 0-7-7z"></path>
+        </svg>
+      );
+
+      const XIcon = ({ className }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      );
+
+      const ChevronUpIcon = ({ className }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <polyline points="18 15 12 9 6 15"></polyline>
+        </svg>
+      );
+
       // Calendar Integration Helper
       const getCalendarUrl = (task, calendarProvider) => {
         if (!task.scheduledTime) return null;
@@ -600,6 +650,187 @@ Please provide helpful, actionable advice related to this specific task. Be conc
         }
       };
 
+      // CSV Export Utilities
+      const downloadCSV = (data, filename) => {
+        const blob = new Blob([data], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+
+      const arrayToCSV = (array) => {
+        if (!array || array.length === 0) return '';
+
+        const headers = Object.keys(array[0]);
+        const csvHeaders = headers.join(',');
+
+        const csvRows = array.map(row =>
+          headers.map(header => {
+            const value = row[header];
+            // Escape quotes and wrap in quotes if contains comma, quote, or newline
+            if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
+              return `"${value.replace(/"/g, '""')}"`;
+            }
+            return value;
+          }).join(',')
+        );
+
+        return [csvHeaders, ...csvRows].join('\n');
+      };
+
+      const exportCompletedTasks = (completedHistory) => {
+        if (!completedHistory || completedHistory.length === 0) {
+          alert('No completed tasks to export');
+          return;
+        }
+
+        const tasksForExport = completedHistory.map(task => ({
+          task: task.text,
+          completed_date: new Date(task.completedAt).toLocaleDateString(),
+          completed_time: new Date(task.completedAt).toLocaleTimeString(),
+          was_income_generating: task.isIncomeGenerating ? 'Yes' : 'No',
+          description: task.description || '',
+          notes: task.notes || '',
+          scheduled_time: task.scheduledTime || '',
+          duration_minutes: task.duration || ''
+        }));
+
+        const csvData = arrayToCSV(tasksForExport);
+        const filename = `completed-tasks-${new Date().toISOString().split('T')[0]}.csv`;
+        downloadCSV(csvData, filename);
+      };
+
+      const exportUncompletedTasks = (brainDump, topThree, nonNegotiableTasks, ideasVault) => {
+        const timestamp = new Date().toISOString().split('T')[0];
+
+        // Filter uncompleted tasks from each section
+        const uncompletedBrainDump = brainDump.filter(task => !task.isCompleted);
+        const uncompletedTopThree = topThree.filter(task => !task.isCompleted);
+        const uncompletedNonNegotiables = nonNegotiableTasks.filter(task => !task.isCompleted);
+
+        // Check if there are any uncompleted tasks
+        const totalUncompleted = uncompletedBrainDump.length + uncompletedTopThree.length + uncompletedNonNegotiables.length + ideasVault.length;
+
+        if (totalUncompleted === 0) {
+          alert('No uncompleted tasks to export');
+          return;
+        }
+
+        // Create summary
+        const summary = {
+          export_date: new Date().toLocaleDateString(),
+          export_time: new Date().toLocaleTimeString(),
+          uncompleted_top_three: uncompletedTopThree.length,
+          uncompleted_brain_dump: uncompletedBrainDump.length,
+          uncompleted_non_negotiables: uncompletedNonNegotiables.length,
+          ideas_in_vault: ideasVault.length,
+          total_uncompleted_items: totalUncompleted
+        };
+
+        let csvContent = '=== UNCOMPLETED TASKS EXPORT ===\n\n';
+        csvContent += '=== SUMMARY ===\n';
+        csvContent += arrayToCSV([summary]) + '\n\n';
+
+        // Export Top 3 Priorities (uncompleted)
+        if (uncompletedTopThree.length > 0) {
+          csvContent += '=== TOP 3 PRIORITIES (UNCOMPLETED) ===\n';
+          const topThreeForExport = uncompletedTopThree.map(task => ({
+            section: 'Top 3 Priorities',
+            task: task.text,
+            description: task.description || '',
+            scheduled_time: task.scheduledTime || '',
+            duration_minutes: task.duration || '',
+            is_income_generating: task.isIncomeGenerating ? 'Yes' : 'No',
+            action_notes: task.notes || ''
+          }));
+          csvContent += arrayToCSV(topThreeForExport) + '\n\n';
+        }
+
+        // Export Brain Dump (uncompleted)
+        if (uncompletedBrainDump.length > 0) {
+          csvContent += '=== BRAIN DUMP (UNCOMPLETED) ===\n';
+          const brainDumpForExport = uncompletedBrainDump.map(task => ({
+            section: 'Brain Dump',
+            task: task.text,
+            description: task.description || '',
+            scheduled_time: task.scheduledTime || '',
+            duration_minutes: task.duration || '',
+            is_income_generating: task.isIncomeGenerating ? 'Yes' : 'No',
+            action_notes: task.notes || ''
+          }));
+          csvContent += arrayToCSV(brainDumpForExport) + '\n\n';
+        }
+
+        // Export Non-Negotiables (uncompleted)
+        if (uncompletedNonNegotiables.length > 0) {
+          csvContent += '=== NON-NEGOTIABLES (UNCOMPLETED) ===\n';
+          const nonNegotiablesForExport = uncompletedNonNegotiables.map(task => ({
+            section: 'Non-Negotiables',
+            task: task.text,
+            description: task.description || '',
+            scheduled_time: task.scheduledTime || '',
+            is_income_generating: task.isIncomeGenerating ? 'Yes' : 'No'
+          }));
+          csvContent += arrayToCSV(nonNegotiablesForExport) + '\n\n';
+        }
+
+        // Export Ideas Vault
+        if (ideasVault.length > 0) {
+          csvContent += '=== IDEAS VAULT ===\n';
+          const ideasForExport = ideasVault.map(idea => ({
+            section: 'Ideas Vault',
+            idea: idea.text,
+            description: idea.description || ''
+          }));
+          csvContent += arrayToCSV(ideasForExport) + '\n\n';
+        }
+
+        const filename = `uncompleted-tasks-${timestamp}.csv`;
+        downloadCSV(csvContent, filename);
+      };
+
+      const exportAllData = (completedHistory, brainDump, topThree, nonNegotiableTasks, ideasVault) => {
+        const timestamp = new Date().toISOString().split('T')[0];
+
+        // Create a comprehensive export
+        const summary = {
+          export_date: new Date().toLocaleDateString(),
+          export_time: new Date().toLocaleTimeString(),
+          total_completed_tasks: completedHistory.length,
+          current_brain_dump_tasks: brainDump.length,
+          current_top_three_tasks: topThree.length,
+          current_non_negotiables: nonNegotiableTasks.length,
+          ideas_in_vault: ideasVault.length
+        };
+
+        let csvContent = '=== MOMENTUM TRACKER DATA EXPORT ===\n\n';
+        csvContent += '=== SUMMARY ===\n';
+        csvContent += arrayToCSV([summary]) + '\n\n';
+
+        if (completedHistory.length > 0) {
+          csvContent += '=== COMPLETED TASKS ===\n';
+          const tasksForExport = completedHistory.map(task => ({
+            task: task.text,
+            completed_date: new Date(task.completedAt).toLocaleDateString(),
+            completed_time: new Date(task.completedAt).toLocaleTimeString(),
+            was_income_generating: task.isIncomeGenerating ? 'Yes' : 'No',
+            description: task.description || '',
+            notes: task.notes || '',
+            scheduled_time: task.scheduledTime || '',
+            duration_minutes: task.duration || ''
+          }));
+          csvContent += arrayToCSV(tasksForExport) + '\n\n';
+        }
+
+        const filename = `momentum-tracker-full-export-${timestamp}.csv`;
+        downloadCSV(csvContent, filename);
+      };
+
       // AI Modal Component
       const AIModal = ({ task, user, onClose }) => {
         const [prompt, setPrompt] = useState('');
@@ -700,10 +931,41 @@ Please provide helpful, actionable advice related to this specific task. Be conc
         );
       };
 
-      // Task Card Component
-      const TaskCard = ({ task, onUpdate, onDelete, onPromote, onDemote, onLaunchAI, isTopThree, user }) => {
+      // Task Card Component with Description Support
+      const TaskCard = ({ task, onUpdate, onDelete, onPromote, onDemote, onSendToVault, onLaunchAI, isTopThree, user }) => {
+        const [editingStates, setEditingStates] = useState({});
+        const [tempValues, setTempValues] = useState({});
+
         const handleToggle = (field, value) => {
           onUpdate({ ...task, [field]: value });
+        };
+
+        const handleEditToggle = (field) => {
+          const key = `${task.id}-${field}`;
+
+          if (editingStates[key]) {
+            // Save the changes
+            const newValue = tempValues[key];
+            onUpdate({ ...task, [field]: newValue || '' });
+            setEditingStates(prev => ({ ...prev, [key]: false }));
+          } else {
+            // Start editing
+            setTempValues(prev => ({ ...prev, [key]: task[field] || '' }));
+            setEditingStates(prev => ({ ...prev, [key]: true }));
+          }
+        };
+
+        const handleKeyPress = (e, field) => {
+          if (e.key === 'Escape') {
+            const key = `${task.id}-${field}`;
+            setTempValues(prev => ({ ...prev, [key]: task[field] || '' }));
+            setEditingStates(prev => ({ ...prev, [key]: false }));
+          }
+        };
+
+        const updateTempValue = (field, value) => {
+          const key = `${task.id}-${field}`;
+          setTempValues(prev => ({ ...prev, [key]: value }));
         };
 
         const handleAddToCalendar = () => {
@@ -728,16 +990,69 @@ Please provide helpful, actionable advice related to this specific task. Be conc
           }
         };
 
+        const descKey = `${task.id}-description`;
+        const isEditingDesc = editingStates[descKey];
+
         return (
           <div className="p-4 rounded-lg flex items-start gap-4 bg-white border border-slate-200">
             <input
               type="checkbox"
               checked={task.isCompleted}
               onChange={(e) => handleToggle('isCompleted', e.target.checked)}
-              className="mt-1 h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              className="mt-1 h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 shrink-0"
             />
             <div className="flex-1">
-              <p className="font-medium text-slate-800">{task.text}</p>
+              <p className="font-medium text-slate-800 mb-2">{task.text}</p>
+
+              {/* Description Section */}
+              <div className="mb-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs text-slate-500">Description:</span>
+                  <button
+                    onClick={() => handleEditToggle('description')}
+                    className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                    title={isEditingDesc ? "Save description" : "Edit description"}
+                  >
+                    <EditIcon className="w-3 h-3" />
+                  </button>
+                </div>
+
+                {isEditingDesc ? (
+                  <div className="space-y-2">
+                    <textarea
+                      value={tempValues[descKey] || ''}
+                      onChange={(e) => updateTempValue('description', e.target.value)}
+                      onKeyDown={(e) => handleKeyPress(e, 'description')}
+                      placeholder="Add description for this task..."
+                      className="w-full text-sm p-2 rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500"
+                      rows={2}
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleEditToggle('description')}
+                        className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => {
+                          setTempValues(prev => ({ ...prev, [descKey]: task.description || '' }));
+                          setEditingStates(prev => ({ ...prev, [descKey]: false }));
+                        }}
+                        className="px-2 py-1 text-xs bg-slate-200 text-slate-700 rounded hover:bg-slate-300"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-slate-600 bg-slate-50 p-2 rounded border">
+                    {task.description || <em className="text-slate-400">No description added yet.</em>}
+                  </div>
+                )}
+              </div>
+
               {isTopThree && (
                 <div className="mt-3 space-y-3">
                   <div className="grid grid-cols-2 gap-2">
@@ -786,12 +1101,223 @@ Please provide helpful, actionable advice related to this specific task. Be conc
                 </div>
               )}
             </div>
-            <div className="flex flex-col items-center gap-2">
-              {onPromote && <button onClick={onPromote} title="Promote to Top 3" className="text-slate-500 hover:text-green-600"><ArrowUpCircleIcon className="w-6 h-6" /></button>}
-              {onDemote && <button onClick={onDemote} title="Demote to Brain Dump" className="text-slate-500 hover:text-yellow-600"><ArrowDownCircleIcon className="w-6 h-6" /></button>}
-              {user.settings.aiProvider !== 'none' && onLaunchAI && <button onClick={onLaunchAI} title="Ask AI Assistant" className="text-slate-500 hover:text-blue-600"><SparkleIcon className="w-5 h-5" /></button>}
-              <button onClick={onDelete} title="Delete Task" className="text-slate-500 hover:text-red-600"><TrashIcon className="w-5 h-5" /></button>
+
+            {/* Horizontal Action Icons */}
+            <div className="flex items-center gap-2 shrink-0">
+              {onPromote && (
+                <button
+                  onClick={onPromote}
+                  title="Promote to Top 3"
+                  className="p-1 text-slate-500 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
+                >
+                  <ArrowUpCircleIcon className="w-5 h-5" />
+                </button>
+              )}
+              {onDemote && (
+                <button
+                  onClick={onDemote}
+                  title="Demote to Brain Dump"
+                  className="p-1 text-slate-500 hover:text-yellow-600 hover:bg-yellow-50 rounded transition-colors"
+                >
+                  <ArrowDownCircleIcon className="w-5 h-5" />
+                </button>
+              )}
+              {onSendToVault && (
+                <button
+                  onClick={onSendToVault}
+                  title="Send to Ideas Vault"
+                  className="p-1 text-slate-500 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors"
+                >
+                  <LightbulbIcon className="w-5 h-5" />
+                </button>
+              )}
+              {user.settings.aiProvider !== 'none' && onLaunchAI && (
+                <button
+                  onClick={onLaunchAI}
+                  title="Ask AI Assistant"
+                  className="p-1 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                >
+                  <SparkleIcon className="w-5 h-5" />
+                </button>
+              )}
+              <button
+                onClick={onDelete}
+                title="Delete Task"
+                className="p-1 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+              >
+                <TrashIcon className="w-5 h-5" />
+              </button>
             </div>
+          </div>
+        );
+      };
+
+      // Ideas Vault List Component (enhanced with description editing)
+      const IdeasVaultList = ({ ideas, onUpdateIdea, onReorderIdea, onCopyFromVault, onDeleteIdea }) => {
+        const [editingStates, setEditingStates] = useState({});
+        const [tempValues, setTempValues] = useState({});
+
+        const handleEditToggle = (ideaId, field) => {
+          const key = `${ideaId}-${field}`;
+          const idea = ideas.find(i => i.id === ideaId);
+
+          if (editingStates[key]) {
+            // Save the changes
+            const newValue = tempValues[key];
+            if (field === 'text' && !newValue?.trim()) {
+              // Don't allow empty titles
+              setTempValues(prev => ({ ...prev, [key]: idea[field] }));
+            } else {
+              onUpdateIdea({ ...idea, [field]: newValue || '' });
+            }
+            setEditingStates(prev => ({ ...prev, [key]: false }));
+          } else {
+            // Start editing
+            setTempValues(prev => ({ ...prev, [key]: idea[field] || '' }));
+            setEditingStates(prev => ({ ...prev, [key]: true }));
+          }
+        };
+
+        const handleKeyPress = (e, ideaId, field) => {
+          if (e.key === 'Enter' && field === 'text') {
+            handleEditToggle(ideaId, field);
+          } else if (e.key === 'Escape') {
+            const key = `${ideaId}-${field}`;
+            const idea = ideas.find(i => i.id === ideaId);
+            setTempValues(prev => ({ ...prev, [key]: idea[field] || '' }));
+            setEditingStates(prev => ({ ...prev, [key]: false }));
+          }
+        };
+
+        const updateTempValue = (ideaId, field, value) => {
+          const key = `${ideaId}-${field}`;
+          setTempValues(prev => ({ ...prev, [key]: value }));
+        };
+
+        return (
+          <div className="space-y-4">
+            {ideas.map((idea, index) => {
+              const titleKey = `${idea.id}-text`;
+              const descKey = `${idea.id}-description`;
+              const isEditingTitle = editingStates[titleKey];
+              const isEditingDesc = editingStates[descKey];
+
+              return (
+                <div key={idea.id} className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1">
+                      <div className="flex items-start gap-2 mb-2">
+                        {isEditingTitle ? (
+                          <input
+                            type="text"
+                            value={tempValues[titleKey] || ''}
+                            onChange={(e) => updateTempValue(idea.id, 'text', e.target.value)}
+                            onBlur={() => handleEditToggle(idea.id, 'text')}
+                            onKeyDown={(e) => handleKeyPress(e, idea.id, 'text')}
+                            className="flex-1 font-medium text-slate-800 bg-white border border-blue-500 rounded px-2 py-1 focus:outline-none"
+                            autoFocus
+                          />
+                        ) : (
+                          <p className="flex-1 font-medium text-slate-700">{idea.text}</p>
+                        )}
+                        <button
+                          onClick={() => handleEditToggle(idea.id, 'text')}
+                          className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                          title={isEditingTitle ? "Save title" : "Edit title"}
+                        >
+                          <EditIcon className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Description Section */}
+                      <div className="mb-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs text-slate-500">Description:</span>
+                          <button
+                            onClick={() => handleEditToggle(idea.id, 'description')}
+                            className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                            title={isEditingDesc ? "Save description" : "Edit description"}
+                          >
+                            <EditIcon className="w-3 h-3" />
+                          </button>
+                        </div>
+
+                        {isEditingDesc ? (
+                          <div className="space-y-2">
+                            <textarea
+                              value={tempValues[descKey] || ''}
+                              onChange={(e) => updateTempValue(idea.id, 'description', e.target.value)}
+                              onKeyDown={(e) => handleKeyPress(e, idea.id, 'description')}
+                              placeholder="Add description for this idea..."
+                              className="w-full text-sm p-2 rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500"
+                              rows={2}
+                              autoFocus
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleEditToggle(idea.id, 'description')}
+                                className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setTempValues(prev => ({ ...prev, [descKey]: idea.description || '' }));
+                                  setEditingStates(prev => ({ ...prev, [descKey]: false }));
+                                }}
+                                className="px-2 py-1 text-xs bg-slate-200 text-slate-700 rounded hover:bg-slate-300"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-sm text-slate-600 bg-white p-2 rounded border">
+                            {idea.description || <em className="text-slate-400">No description added yet.</em>}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => onReorderIdea(idea.id, 'up')}
+                          disabled={index === 0}
+                          title="Move Up"
+                          className="p-1 rounded-md text-slate-500 hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <ChevronUpIcon className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => onReorderIdea(idea.id, 'down')}
+                          disabled={index === ideas.length - 1}
+                          title="Move Down"
+                          className="p-1 rounded-md text-slate-500 hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <ChevronDownIcon className="w-5 h-5" />
+                        </button>
+                      </div>
+                      <div className="h-6 border-l border-slate-300"></div>
+                      <button
+                        onClick={() => onCopyFromVault(idea.id)}
+                        title="Copy to Brain Dump"
+                        className="p-1 text-blue-600 hover:text-blue-800"
+                      >
+                        <RestoreIcon className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => onDeleteIdea(idea.id)}
+                        title="Delete Idea Permanently"
+                        className="p-1 text-red-600 hover:text-red-800"
+                      >
+                        <TrashIcon className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         );
       };
@@ -804,7 +1330,7 @@ Please provide helpful, actionable advice related to this specific task. Be conc
         const [brainDump, setBrainDump] = useUserLocalStorage('brainDump', []);
         const [topThree, setTopThree] = useUserLocalStorage(`topThree_${todayStr}`, []);
         const [completedHistory, setCompletedHistory] = useUserLocalStorage('completedHistory', []);
-        const [lapsHistory, setLapsHistory] = useUserLocalStorage('lapsHistory', []);
+        const [ideasVault, setIdeasVault] = useUserLocalStorage('ideasVault', []);
 
         // User's personalized non-negotiables
         const [nonNegotiableTasks, setNonNegotiableTasks] = useUserLocalStorage(
@@ -814,11 +1340,13 @@ Please provide helpful, actionable advice related to this specific task. Be conc
             isCompleted: false,
             scheduledTime: '',
             notes: '',
+            description: '',
           }))
         );
 
         const [newTaskText, setNewTaskText] = useState('');
         const [showCompleted, setShowCompleted] = useState(false);
+        const [showIdeasVault, setShowIdeasVault] = useState(false);
         const [aiTask, setAiTask] = useState(null);
         const [showSettings, setShowSettings] = useState(false);
 
@@ -831,6 +1359,7 @@ Please provide helpful, actionable advice related to this specific task. Be conc
             isCompleted: false,
             isIncomeGenerating: false,
             notes: '',
+            description: '',
             scheduledTime: '',
             duration: 60,
           };
@@ -880,6 +1409,67 @@ Please provide helpful, actionable advice related to this specific task. Be conc
           }
         };
 
+        const restoreTask = (id) => {
+          const taskToRestore = completedHistory.find(t => t.id === id);
+          if (taskToRestore) {
+            const restoredTask = { ...taskToRestore, isCompleted: false, completedAt: undefined };
+            setBrainDump(prev => [restoredTask, ...prev]);
+            setCompletedHistory(prev => prev.filter(t => t.id !== id));
+          }
+        };
+
+        const handleSendToVault = (id) => {
+          const taskToVault = brainDump.find(t => t.id === id);
+          if (taskToVault) {
+            // Preserve the description when sending to vault
+            const vaultTask = {
+              id: taskToVault.id,
+              text: taskToVault.text,
+              description: taskToVault.description || ''
+            };
+            setIdeasVault(prev => [vaultTask, ...prev]);
+            setBrainDump(prev => prev.filter(t => t.id !== id));
+          }
+        };
+
+        const handleCopyFromVault = (id) => {
+          const taskToCopy = ideasVault.find(t => t.id === id);
+          if (taskToCopy) {
+            const newActionableTask = {
+              ...taskToCopy,
+              id: generateUUID(),
+              isCompleted: false,
+              isIncomeGenerating: false,
+              notes: '',
+              scheduledTime: '',
+              duration: 60,
+              // Preserve the description from the vault
+              description: taskToCopy.description || ''
+            };
+            setBrainDump(prev => [newActionableTask, ...prev]);
+            alert(`Copied "${taskToCopy.text}" to Brain Dump.`);
+          }
+        };
+
+        const handleReorderIdea = (id, direction) => {
+          setIdeasVault(prev => {
+            const index = prev.findIndex(t => t.id === id);
+            if (index === -1) return prev;
+
+            if (direction === 'up' && index > 0) {
+              const newVault = [...prev];
+              [newVault[index - 1], newVault[index]] = [newVault[index], newVault[index - 1]];
+              return newVault;
+            }
+            if (direction === 'down' && index < prev.length - 1) {
+              const newVault = [...prev];
+              [newVault[index + 1], newVault[index]] = [newVault[index], newVault[index + 1]];
+              return newVault;
+            }
+            return prev;
+          });
+        };
+
         const startNewDay = () => {
           if (window.confirm("Are you sure you want to end the day? Incomplete priorities will be returned to your Brain Dump.")) {
             const incompleteTasks = topThree.filter(t => !t.isCompleted);
@@ -909,6 +1499,22 @@ Please provide helpful, actionable advice related to this specific task. Be conc
                   <p className="text-sm text-slate-600">Welcome back, {user.name}!</p>
                 </div>
                 <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => exportUncompletedTasks(brainDump, topThree, nonNegotiableTasks, ideasVault)}
+                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-green-600 bg-green-50 rounded-md hover:bg-green-100"
+                    title="Export all uncompleted tasks from all sections to CSV"
+                  >
+                    <DownloadIcon className="w-4 h-4" />
+                    Export Uncompleted
+                  </button>
+                  <button
+                    onClick={() => exportAllData(completedHistory, brainDump, topThree, nonNegotiableTasks, ideasVault)}
+                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100"
+                    title="Export all your data to CSV"
+                  >
+                    <DownloadIcon className="w-4 h-4" />
+                    Export All Data
+                  </button>
                   <button
                     onClick={() => setShowSettings(true)}
                     className="p-2 text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg"
@@ -1006,6 +1612,30 @@ Please provide helpful, actionable advice related to this specific task. Be conc
                 </section>
               )}
 
+              {/* Daily Accountability Reminder */}
+              <div className="bg-slate-100 border-l-4 border-blue-400 p-4 rounded-lg shadow-sm mb-6">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-blue-500 mt-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-semibold text-blue-800">Daily Accountability Reminder</h3>
+                    <div className="mt-2 text-sm text-blue-700">
+                      <p className="mb-2">Make sure to complete these essential activities today:</p>
+                      <ul className="list-disc list-inside space-y-1 ml-2">
+                        <li><strong>Make at least 1 Appointment</strong> - Schedule a meeting, call, or connection</li>
+                        <li><strong>Speak to at least 1 person</strong> - Have a meaningful conversation or interaction</li>
+                        <li><strong>Teach Someone</strong> - Share knowledge, mentor, or help someone learn</li>
+                        <li><strong>Make an offer</strong> - Present a proposal, service, or opportunity to someone</li>
+                      </ul>
+                      <p className="mt-2 text-xs italic">💡 These activities drive momentum and growth in your business and personal life</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Brain Dump */}
               <section className="bg-white p-6 rounded-lg shadow-md mb-8">
                 <h2 className="text-2xl font-bold text-slate-800 mb-4">🧠 Brain Dump</h2>
@@ -1021,7 +1651,7 @@ Please provide helpful, actionable advice related to this specific task. Be conc
                     <PlusIcon className="w-5 h-5" />
                   </button>
                 </form>
-                <div className="space-y-3 max-h-96 overflow-y-auto">
+                <div className="space-y-3 max-h-[45rem] overflow-y-auto pr-2">
                   {brainDump.length > 0 ? (
                     brainDump.map(task => (
                       <TaskCard
@@ -1030,6 +1660,7 @@ Please provide helpful, actionable advice related to this specific task. Be conc
                         onUpdate={handleUpdateTask}
                         onDelete={() => handleDeleteTask(task.id, setBrainDump)}
                         onPromote={() => promoteTask(task.id)}
+                        onSendToVault={() => handleSendToVault(task.id)}
                         onLaunchAI={() => setAiTask(task)}
                         isTopThree={false}
                         user={user}
@@ -1041,15 +1672,55 @@ Please provide helpful, actionable advice related to this specific task. Be conc
                 </div>
               </section>
 
-              {/* Completed Tasks */}
+              {/* Ideas Vault */}
               <div className="bg-white p-6 rounded-lg shadow-md mb-8">
                 <button
-                  onClick={() => setShowCompleted(!showCompleted)}
+                  onClick={() => setShowIdeasVault(!showIdeasVault)}
                   className="w-full flex justify-between items-center text-left text-xl font-bold text-slate-800 focus:outline-none"
                 >
-                  <span>✅ Completed Tasks ({completedHistory.length})</span>
-                  <ChevronDownIcon className={`w-6 h-6 transform transition-transform ${showCompleted ? 'rotate-180' : ''}`} />
+                  <span>💡 Ideas Vault ({ideasVault.length})</span>
+                  <ChevronDownIcon className={`w-6 h-6 transform transition-transform ${showIdeasVault ? 'rotate-180' : ''}`} />
                 </button>
+                {showIdeasVault && (
+                  <div className="mt-4 pt-4 border-t">
+                    {ideasVault.length > 0 ? (
+                      <IdeasVaultList
+                        ideas={ideasVault}
+                        onUpdateIdea={(updatedIdea) => {
+                          setIdeasVault(prev => prev.map(idea => idea.id === updatedIdea.id ? updatedIdea : idea));
+                        }}
+                        onReorderIdea={handleReorderIdea}
+                        onCopyFromVault={handleCopyFromVault}
+                        onDeleteIdea={(id) => handleDeleteTask(id, setIdeasVault)}
+                      />
+                    ) : (
+                      <p className="text-slate-500 text-center py-4">Send ideas here to review later.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Completed Tasks */}
+              <div className="bg-white p-6 rounded-lg shadow-md mb-8">
+                <div className="flex justify-between items-center">
+                  <button
+                    onClick={() => setShowCompleted(!showCompleted)}
+                    className="flex items-center text-left text-xl font-bold text-slate-800 focus:outline-none"
+                  >
+                    <span>✅ Completed Task History ({completedHistory.length})</span>
+                    <ChevronDownIcon className={`w-6 h-6 ml-2 transform transition-transform ${showCompleted ? 'rotate-180' : ''}`} />
+                  </button>
+                  {completedHistory.length > 0 && (
+                    <button
+                      onClick={() => exportCompletedTasks(completedHistory)}
+                      className="flex items-center gap-2 px-3 py-1 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      title="Export completed tasks to CSV"
+                    >
+                      <DownloadIcon className="w-4 h-4" />
+                      Export CSV
+                    </button>
+                  )}
+                </div>
                 {showCompleted && completedHistory.length > 0 && (
                   <div className="mt-4 space-y-2">
                     {completedHistory.slice(0, 10).map(task => (
@@ -1057,10 +1728,32 @@ Please provide helpful, actionable advice related to this specific task. Be conc
                         <div>
                           <p className="font-medium text-slate-900">{task.text}</p>
                           <p className="text-sm text-slate-500">{new Date(task.completedAt).toLocaleString()}</p>
+                          {task.description && (
+                            <p className="text-sm text-slate-600 mt-1">{task.description}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => restoreTask(task.id)}
+                            title="Restore Task"
+                            className="text-blue-600 hover:text-blue-800"
+                          >
+                            <RestoreIcon className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteTask(task.id, setCompletedHistory)}
+                            title="Delete Permanently"
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
                         </div>
                       </div>
                     ))}
                   </div>
+                )}
+                {showCompleted && completedHistory.length === 0 && (
+                  <p className="mt-4 text-slate-500 text-center py-4">No completed tasks yet. Get to work!</p>
                 )}
               </div>
 
