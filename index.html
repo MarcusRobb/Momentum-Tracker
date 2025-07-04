@@ -1190,153 +1190,204 @@
         };
 
         return (
-          <div className="p-4 rounded-lg flex items-start gap-4 transition-all bg-white border border-slate-200">
-            <input
-              type="checkbox"
-              checked={task.isCompleted}
-              onChange={(e) => handleToggle('isCompleted', e.target.checked)}
-              className="mt-1 h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <div className="flex-1">
-              <div className="flex items-start gap-2">
-                {isEditingTitle ? (
+          <div className="p-4 rounded-lg transition-all bg-white border border-slate-200">
+            <div className="flex items-start gap-4">
+              <input
+                type="checkbox"
+                checked={task.isCompleted}
+                onChange={(e) => handleToggle('isCompleted', e.target.checked)}
+                className="mt-1 h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <div className="flex-1">
+                <div className="flex items-start gap-2">
+                  {isEditingTitle ? (
+                    <input
+                      type="text"
+                      value={tempTitle}
+                      onChange={(e) => setTempTitle(e.target.value)}
+                      onBlur={handleTitleEdit}
+                      onKeyDown={handleTitleKeyPress}
+                      className="flex-1 font-medium text-slate-800 bg-transparent border-b-2 border-blue-500 focus:outline-none"
+                      autoFocus
+                    />
+                  ) : (
+                    <p className="flex-1 font-medium text-slate-800">{task.text}</p>
+                  )}
+                  <button
+                    onClick={handleTitleEdit}
+                    className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                    title={isEditingTitle ? "Save title" : "Edit title"}
+                  >
+                    <EditIcon className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Description Section */}
+                <div className="mt-2">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowDescription(!showDescription)}
+                      className="text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1"
+                    >
+                      <ChevronDownIcon className={`w-4 h-4 transform transition-transform ${showDescription ? 'rotate-180' : ''}`} />
+                      Description {task.description ? '(has content)' : '(empty)'}
+                    </button>
+                    <button
+                      onClick={handleDescriptionEdit}
+                      className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                      title={isEditingDescription ? "Save description" : "Edit description"}
+                    >
+                      <EditIcon className="w-3 h-3" />
+                    </button>
+                  </div>
+
+                  {showDescription && (
+                    <div className="mt-2">
+                      {isEditingDescription ? (
+                        <div className="space-y-2">
+                          <textarea
+                            value={tempDescription}
+                            onChange={(e) => setTempDescription(e.target.value)}
+                            onKeyDown={handleDescriptionKeyPress}
+                            placeholder="Add a description for this task..."
+                            className="w-full text-sm p-2 rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500"
+                            rows={3}
+                            autoFocus
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={handleDescriptionEdit}
+                              className="px-3 py-1 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => {
+                                setTempDescription(task.description || '');
+                                setIsEditingDescription(false);
+                              }}
+                              className="px-3 py-1 text-sm bg-slate-200 text-slate-700 rounded-md hover:bg-slate-300"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-sm text-slate-600 bg-slate-50 p-2 rounded-md">
+                          {task.description || <em className="text-slate-400">No description added yet. Click edit to add one.</em>}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            {isTopThree && (
+              <div className="mt-3 space-y-3">
+                <div className="grid grid-cols-2 gap-2">
                   <input
-                    type="text"
-                    value={tempTitle}
-                    onChange={(e) => setTempTitle(e.target.value)}
-                    onBlur={handleTitleEdit}
-                    onKeyDown={handleTitleKeyPress}
-                    className="flex-1 font-medium text-slate-800 bg-transparent border-b-2 border-blue-500 focus:outline-none"
-                    autoFocus
+                    type="time"
+                    value={task.scheduledTime || ''}
+                    onChange={(e) => handleToggle('scheduledTime', e.target.value)}
+                    className="block w-full text-sm p-2 rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500"
                   />
-                ) : (
-                  <p className="flex-1 font-medium text-slate-800">{task.text}</p>
-                )}
+                  <select
+                    value={task.duration || 60}
+                    onChange={(e) => handleToggle('duration', Number(e.target.value))}
+                    className="block w-full text-sm p-2 rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="15">15 mins</option>
+                    <option value="30">30 mins</option>
+                    <option value="45">45 mins</option>
+                    <option value="60">1 hour</option>
+                    <option value="90">1.5 hours</option>
+                    <option value="120">2 hours</option>
+                  </select>
+                </div>
                 <button
-                  onClick={handleTitleEdit}
-                  className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
-                  title={isEditingTitle ? "Save title" : "Edit title"}
+                  onClick={handleAddToCalendar}
+                  className="w-full flex items-center justify-center gap-2 p-2 rounded-md bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 hover:text-blue-600 transition-colors"
                 >
-                  <EditIcon className="w-4 h-4" />
+                  <CalendarIcon className="w-5 h-5" />
+                  <span>Add to Calendar</span>
+                </button>
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-1">Action Points & Notes</label>
+                  <textarea
+                    placeholder="Specific action steps for this priority task..."
+                    value={task.notes || ''}
+                    onChange={(e) => handleToggle('notes', e.target.value)}
+                    rows={3}
+                    className="block w-full text-sm p-2 rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <button
+                  onClick={() => handleToggle('isIncomeGenerating', !task.isIncomeGenerating)}
+                  className={`w-full flex items-center justify-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${
+                    task.isIncomeGenerating ? 'bg-yellow-400 text-yellow-900 hover:bg-yellow-500' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                  }`}
+                >
+                  <DollarSignIcon className="w-4 h-4" />
+                  <span>Income-Generating Activity</span>
                 </button>
               </div>
+            )}
 
-              {/* Description Section */}
-              <div className="mt-2">
+            {/* Action Buttons - Horizontal layout at bottom for Brain Dump tasks */}
+            {(onPromote || onDemote || onSendToVault || onLaunchGemini || onDelete) && (
+              <div className="mt-3 pt-3 border-t border-slate-200 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setShowDescription(!showDescription)}
-                    className="text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1"
-                  >
-                    <ChevronDownIcon className={`w-4 h-4 transform transition-transform ${showDescription ? 'rotate-180' : ''}`} />
-                    Description {task.description ? '(has content)' : '(empty)'}
-                  </button>
-                  <button
-                    onClick={handleDescriptionEdit}
-                    className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
-                    title={isEditingDescription ? "Save description" : "Edit description"}
-                  >
-                    <EditIcon className="w-3 h-3" />
-                  </button>
-                </div>
-
-                {showDescription && (
-                  <div className="mt-2">
-                    {isEditingDescription ? (
-                      <div className="space-y-2">
-                        <textarea
-                          value={tempDescription}
-                          onChange={(e) => setTempDescription(e.target.value)}
-                          onKeyDown={handleDescriptionKeyPress}
-                          placeholder="Add a description for this task..."
-                          className="w-full text-sm p-2 rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500"
-                          rows={3}
-                          autoFocus
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            onClick={handleDescriptionEdit}
-                            className="px-3 py-1 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600"
-                          >
-                            Save
-                          </button>
-                          <button
-                            onClick={() => {
-                              setTempDescription(task.description || '');
-                              setIsEditingDescription(false);
-                            }}
-                            className="px-3 py-1 text-sm bg-slate-200 text-slate-700 rounded-md hover:bg-slate-300"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-sm text-slate-600 bg-slate-50 p-2 rounded-md">
-                        {task.description || <em className="text-slate-400">No description added yet. Click edit to add one.</em>}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-              {isTopThree && (
-                <div className="mt-3 space-y-3">
-                  <div className="grid grid-cols-2 gap-2">
-                    <input
-                      type="time"
-                      value={task.scheduledTime || ''}
-                      onChange={(e) => handleToggle('scheduledTime', e.target.value)}
-                      className="block w-full text-sm p-2 rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                    <select
-                      value={task.duration || 60}
-                      onChange={(e) => handleToggle('duration', Number(e.target.value))}
-                      className="block w-full text-sm p-2 rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500"
+                  {onPromote && (
+                    <button
+                      onClick={onPromote}
+                      title="Promote to Top 3"
+                      className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-50 rounded-md hover:bg-green-100 transition-colors"
                     >
-                      <option value="15">15 mins</option>
-                      <option value="30">30 mins</option>
-                      <option value="45">45 mins</option>
-                      <option value="60">1 hour</option>
-                      <option value="90">1.5 hours</option>
-                      <option value="120">2 hours</option>
-                    </select>
-                  </div>
-                  <button
-                    onClick={handleAddToCalendar}
-                    className="w-full flex items-center justify-center gap-2 p-2 rounded-md bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 hover:text-blue-600 transition-colors"
-                  >
-                    <CalendarIcon className="w-5 h-5" />
-                    <span>Add to Calendar</span>
-                  </button>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-600 mb-1">Action Points & Notes</label>
-                    <textarea
-                      placeholder="Specific action steps for this priority task..."
-                      value={task.notes || ''}
-                      onChange={(e) => handleToggle('notes', e.target.value)}
-                      rows={3}
-                      className="block w-full text-sm p-2 rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <button
-                    onClick={() => handleToggle('isIncomeGenerating', !task.isIncomeGenerating)}
-                    className={`w-full flex items-center justify-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${
-                      task.isIncomeGenerating ? 'bg-yellow-400 text-yellow-900 hover:bg-yellow-500' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
-                    }`}
-                  >
-                    <DollarSignIcon className="w-4 h-4" />
-                    <span>Income-Generating Activity</span>
-                  </button>
+                      <ArrowUpCircleIcon className="w-4 h-4" />
+                      <span>Promote</span>
+                    </button>
+                  )}
+                  {onDemote && (
+                    <button
+                      onClick={onDemote}
+                      title="Demote to Brain Dump"
+                      className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-yellow-700 bg-yellow-50 rounded-md hover:bg-yellow-100 transition-colors"
+                    >
+                      <ArrowDownCircleIcon className="w-4 h-4" />
+                      <span>Demote</span>
+                    </button>
+                  )}
+                  {onSendToVault && (
+                    <button
+                      onClick={onSendToVault}
+                      title="Send to Ideas Vault"
+                      className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-purple-700 bg-purple-50 rounded-md hover:bg-purple-100 transition-colors"
+                    >
+                      <LightbulbIcon className="w-4 h-4" />
+                      <span>To Vault</span>
+                    </button>
+                  )}
+                  {onLaunchGemini && (
+                    <button
+                      onClick={onLaunchGemini}
+                      title="Work with AI"
+                      className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors"
+                    >
+                      <SparkleIcon className="w-4 h-4" />
+                      <span>AI Help</span>
+                    </button>
+                  )}
                 </div>
-              )}
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              {onPromote && <button onClick={onPromote} title="Promote to Top 3" className="text-slate-500 hover:text-green-600"><ArrowUpCircleIcon className="w-6 h-6" /></button>}
-              {onDemote && <button onClick={onDemote} title="Demote to Brain Dump" className="text-slate-500 hover:text-yellow-600"><ArrowDownCircleIcon className="w-6 h-6" /></button>}
-              {onSendToVault && <button onClick={onSendToVault} title="Send to Ideas Vault" className="text-slate-500 hover:text-purple-600"><LightbulbIcon className="w-5 h-5" /></button>}
-              {onLaunchGemini && <button onClick={onLaunchGemini} title="Work with Gemini" className="text-slate-500 hover:text-blue-600"><SparkleIcon className="w-5 h-5" /></button>}
-              <button onClick={onDelete} title="Delete Task" className="text-slate-500 hover:text-red-600"><TrashIcon className="w-5 h-5" /></button>
-            </div>
+                <button
+                  onClick={onDelete}
+                  title="Delete Task"
+                  className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-700 bg-red-50 rounded-md hover:bg-red-100 transition-colors"
+                >
+                  <TrashIcon className="w-4 h-4" />
+                  <span>Delete</span>
+                </button>
+              </div>
+            )}
           </div>
         );
       };
