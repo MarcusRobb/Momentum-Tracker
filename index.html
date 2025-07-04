@@ -165,6 +165,13 @@
         </svg>
       );
 
+      const EditIcon = ({ className }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+        </svg>
+      );
+
       const ClipboardCopyIcon = ({ className }) => (
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
           <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -1101,10 +1108,57 @@
         );
       };
 
-      // TaskCard Component (simplified for space)
+      // TaskCard Component (enhanced with description editing)
       const TaskCard = ({ task, onUpdate, onDelete, onPromote, onDemote, onSendToVault, onLaunchGemini, isTopThree }) => {
+        const [isEditingTitle, setIsEditingTitle] = useState(false);
+        const [isEditingDescription, setIsEditingDescription] = useState(false);
+        const [showDescription, setShowDescription] = useState(false);
+        const [tempTitle, setTempTitle] = useState(task.text);
+        const [tempDescription, setTempDescription] = useState(task.description || '');
+
         const handleToggle = (field, value) => {
           onUpdate({ ...task, [field]: value });
+        };
+
+        const handleTitleEdit = () => {
+          if (isEditingTitle) {
+            if (tempTitle.trim()) {
+              onUpdate({ ...task, text: tempTitle.trim() });
+            } else {
+              setTempTitle(task.text);
+            }
+            setIsEditingTitle(false);
+          } else {
+            setTempTitle(task.text);
+            setIsEditingTitle(true);
+          }
+        };
+
+        const handleDescriptionEdit = () => {
+          if (isEditingDescription) {
+            onUpdate({ ...task, description: tempDescription });
+            setIsEditingDescription(false);
+          } else {
+            setTempDescription(task.description || '');
+            setIsEditingDescription(true);
+            setShowDescription(true);
+          }
+        };
+
+        const handleTitleKeyPress = (e) => {
+          if (e.key === 'Enter') {
+            handleTitleEdit();
+          } else if (e.key === 'Escape') {
+            setTempTitle(task.text);
+            setIsEditingTitle(false);
+          }
+        };
+
+        const handleDescriptionKeyPress = (e) => {
+          if (e.key === 'Escape') {
+            setTempDescription(task.description || '');
+            setIsEditingDescription(false);
+          }
         };
 
         const handleAddToCalendar = () => {
@@ -1144,7 +1198,87 @@
               className="mt-1 h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
             <div className="flex-1">
-              <p className="font-medium text-slate-800">{task.text}</p>
+              <div className="flex items-start gap-2">
+                {isEditingTitle ? (
+                  <input
+                    type="text"
+                    value={tempTitle}
+                    onChange={(e) => setTempTitle(e.target.value)}
+                    onBlur={handleTitleEdit}
+                    onKeyDown={handleTitleKeyPress}
+                    className="flex-1 font-medium text-slate-800 bg-transparent border-b-2 border-blue-500 focus:outline-none"
+                    autoFocus
+                  />
+                ) : (
+                  <p className="flex-1 font-medium text-slate-800">{task.text}</p>
+                )}
+                <button
+                  onClick={handleTitleEdit}
+                  className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                  title={isEditingTitle ? "Save title" : "Edit title"}
+                >
+                  <EditIcon className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Description Section */}
+              <div className="mt-2">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowDescription(!showDescription)}
+                    className="text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1"
+                  >
+                    <ChevronDownIcon className={`w-4 h-4 transform transition-transform ${showDescription ? 'rotate-180' : ''}`} />
+                    Description {task.description ? '(has content)' : '(empty)'}
+                  </button>
+                  <button
+                    onClick={handleDescriptionEdit}
+                    className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                    title={isEditingDescription ? "Save description" : "Edit description"}
+                  >
+                    <EditIcon className="w-3 h-3" />
+                  </button>
+                </div>
+
+                {showDescription && (
+                  <div className="mt-2">
+                    {isEditingDescription ? (
+                      <div className="space-y-2">
+                        <textarea
+                          value={tempDescription}
+                          onChange={(e) => setTempDescription(e.target.value)}
+                          onKeyDown={handleDescriptionKeyPress}
+                          placeholder="Add a description for this task..."
+                          className="w-full text-sm p-2 rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500"
+                          rows={3}
+                          autoFocus
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleDescriptionEdit}
+                            className="px-3 py-1 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => {
+                              setTempDescription(task.description || '');
+                              setIsEditingDescription(false);
+                            }}
+                            className="px-3 py-1 text-sm bg-slate-200 text-slate-700 rounded-md hover:bg-slate-300"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-slate-600 bg-slate-50 p-2 rounded-md">
+                        {task.description || <em className="text-slate-400">No description added yet. Click edit to add one.</em>}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
               {isTopThree && (
                 <div className="mt-3 space-y-3">
                   <div className="grid grid-cols-2 gap-2">
@@ -1174,13 +1308,16 @@
                     <CalendarIcon className="w-5 h-5" />
                     <span>Add to Calendar</span>
                   </button>
-                  <textarea
-                    placeholder="Action points & notes..."
-                    value={task.notes || ''}
-                    onChange={(e) => handleToggle('notes', e.target.value)}
-                    rows={3}
-                    className="block w-full text-sm p-2 rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500"
-                  />
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 mb-1">Action Points & Notes</label>
+                    <textarea
+                      placeholder="Specific action steps for this priority task..."
+                      value={task.notes || ''}
+                      onChange={(e) => handleToggle('notes', e.target.value)}
+                      rows={3}
+                      className="block w-full text-sm p-2 rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
                   <button
                     onClick={() => handleToggle('isIncomeGenerating', !task.isIncomeGenerating)}
                     className={`w-full flex items-center justify-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${
@@ -1204,8 +1341,47 @@
         );
       };
 
-      // Non-Negotiable Tasks Component
+      // Non-Negotiable Tasks Component (enhanced with description editing)
       const NonNegotiableTasks = ({ tasks, onUpdateTask }) => {
+        const [editingStates, setEditingStates] = useState({});
+        const [tempValues, setTempValues] = useState({});
+
+        const handleEditToggle = (taskId, field) => {
+          const key = `${taskId}-${field}`;
+          const task = tasks.find(t => t.id === taskId);
+
+          if (editingStates[key]) {
+            // Save the changes
+            const newValue = tempValues[key];
+            if (field === 'text' && !newValue?.trim()) {
+              // Don't allow empty titles
+              setTempValues(prev => ({ ...prev, [key]: task[field] }));
+            } else {
+              onUpdateTask({ ...task, [field]: newValue || '' });
+            }
+            setEditingStates(prev => ({ ...prev, [key]: false }));
+          } else {
+            // Start editing
+            setTempValues(prev => ({ ...prev, [key]: task[field] || '' }));
+            setEditingStates(prev => ({ ...prev, [key]: true }));
+          }
+        };
+
+        const handleKeyPress = (e, taskId, field) => {
+          if (e.key === 'Enter' && field === 'text') {
+            handleEditToggle(taskId, field);
+          } else if (e.key === 'Escape') {
+            const key = `${taskId}-${field}`;
+            const task = tasks.find(t => t.id === taskId);
+            setTempValues(prev => ({ ...prev, [key]: task[field] || '' }));
+            setEditingStates(prev => ({ ...prev, [key]: false }));
+          }
+        };
+
+        const updateTempValue = (taskId, field, value) => {
+          const key = `${taskId}-${field}`;
+          setTempValues(prev => ({ ...prev, [key]: value }));
+        };
         const handleAddToCalendar = (task) => {
           if (!task.scheduledTime || task.scheduledTime.match(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/) === null) {
             alert("Please set a valid time for the task first.");
@@ -1233,36 +1409,286 @@
         };
 
         return (
-          <div className="space-y-3">
-            {tasks.map(task => (
-              <div key={task.id} className="p-3 rounded-lg flex items-center gap-4 bg-slate-50 border border-slate-200">
-                <input
-                  type="checkbox"
-                  checked={task.isCompleted}
-                  onChange={(e) => onUpdateTask({ ...task, isCompleted: e.target.checked })}
-                  className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 shrink-0"
-                />
-                <div className="flex-1">
-                  <p className="font-medium text-slate-800">{task.text}</p>
+          <div className="space-y-4">
+            {tasks.map(task => {
+              const titleKey = `${task.id}-text`;
+              const descKey = `${task.id}-description`;
+              const isEditingTitle = editingStates[titleKey];
+              const isEditingDesc = editingStates[descKey];
+
+              return (
+                <div key={task.id} className="p-4 rounded-lg bg-slate-50 border border-slate-200">
+                  <div className="flex items-start gap-4">
+                    <input
+                      type="checkbox"
+                      checked={task.isCompleted}
+                      onChange={(e) => onUpdateTask({ ...task, isCompleted: e.target.checked })}
+                      className="mt-1 h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 shrink-0"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-start gap-2 mb-2">
+                        {isEditingTitle ? (
+                          <input
+                            type="text"
+                            value={tempValues[titleKey] || ''}
+                            onChange={(e) => updateTempValue(task.id, 'text', e.target.value)}
+                            onBlur={() => handleEditToggle(task.id, 'text')}
+                            onKeyDown={(e) => handleKeyPress(e, task.id, 'text')}
+                            className="flex-1 font-medium text-slate-800 bg-white border border-blue-500 rounded px-2 py-1 focus:outline-none"
+                            autoFocus
+                          />
+                        ) : (
+                          <p className="flex-1 font-medium text-slate-800">{task.text}</p>
+                        )}
+                        <button
+                          onClick={() => handleEditToggle(task.id, 'text')}
+                          className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                          title={isEditingTitle ? "Save title" : "Edit title"}
+                        >
+                          <EditIcon className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Description Section */}
+                      <div className="mb-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs text-slate-500">Description:</span>
+                          <button
+                            onClick={() => handleEditToggle(task.id, 'description')}
+                            className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                            title={isEditingDesc ? "Save description" : "Edit description"}
+                          >
+                            <EditIcon className="w-3 h-3" />
+                          </button>
+                        </div>
+
+                        {isEditingDesc ? (
+                          <div className="space-y-2">
+                            <textarea
+                              value={tempValues[descKey] || ''}
+                              onChange={(e) => updateTempValue(task.id, 'description', e.target.value)}
+                              onKeyDown={(e) => handleKeyPress(e, task.id, 'description')}
+                              placeholder="Add description for this non-negotiable task..."
+                              className="w-full text-sm p-2 rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500"
+                              rows={2}
+                              autoFocus
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleEditToggle(task.id, 'description')}
+                                className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setTempValues(prev => ({ ...prev, [descKey]: task.description || '' }));
+                                  setEditingStates(prev => ({ ...prev, [descKey]: false }));
+                                }}
+                                className="px-2 py-1 text-xs bg-slate-200 text-slate-700 rounded hover:bg-slate-300"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-sm text-slate-600 bg-white p-2 rounded border">
+                            {task.description || <em className="text-slate-400">No description added yet.</em>}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="time"
+                        value={task.scheduledTime || ''}
+                        onChange={(e) => onUpdateTask({ ...task, scheduledTime: e.target.value })}
+                        className="block w-32 text-sm p-2 rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                      <button
+                        onClick={() => handleAddToCalendar(task)}
+                        title="Add to Google Calendar"
+                        className="p-2 rounded-md bg-white border border-slate-300 text-slate-500 hover:bg-slate-50 hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={!task.scheduledTime}
+                      >
+                        <CalendarIcon className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="time"
-                    value={task.scheduledTime || ''}
-                    onChange={(e) => onUpdateTask({ ...task, scheduledTime: e.target.value })}
-                    className="block w-32 text-sm p-2 rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <button
-                    onClick={() => handleAddToCalendar(task)}
-                    title="Add to Google Calendar"
-                    className="p-2 rounded-md bg-white border border-slate-300 text-slate-500 hover:bg-slate-50 hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={!task.scheduledTime}
-                  >
-                    <CalendarIcon className="w-5 h-5" />
-                  </button>
+              );
+            })}
+          </div>
+        );
+      };
+
+      // Ideas Vault List Component (enhanced with description editing)
+      const IdeasVaultList = ({ ideas, onUpdateIdea, onReorderIdea, onCopyFromVault, onDeleteIdea }) => {
+        const [editingStates, setEditingStates] = useState({});
+        const [tempValues, setTempValues] = useState({});
+
+        const handleEditToggle = (ideaId, field) => {
+          const key = `${ideaId}-${field}`;
+          const idea = ideas.find(i => i.id === ideaId);
+
+          if (editingStates[key]) {
+            // Save the changes
+            const newValue = tempValues[key];
+            if (field === 'text' && !newValue?.trim()) {
+              // Don't allow empty titles
+              setTempValues(prev => ({ ...prev, [key]: idea[field] }));
+            } else {
+              onUpdateIdea({ ...idea, [field]: newValue || '' });
+            }
+            setEditingStates(prev => ({ ...prev, [key]: false }));
+          } else {
+            // Start editing
+            setTempValues(prev => ({ ...prev, [key]: idea[field] || '' }));
+            setEditingStates(prev => ({ ...prev, [key]: true }));
+          }
+        };
+
+        const handleKeyPress = (e, ideaId, field) => {
+          if (e.key === 'Enter' && field === 'text') {
+            handleEditToggle(ideaId, field);
+          } else if (e.key === 'Escape') {
+            const key = `${ideaId}-${field}`;
+            const idea = ideas.find(i => i.id === ideaId);
+            setTempValues(prev => ({ ...prev, [key]: idea[field] || '' }));
+            setEditingStates(prev => ({ ...prev, [key]: false }));
+          }
+        };
+
+        const updateTempValue = (ideaId, field, value) => {
+          const key = `${ideaId}-${field}`;
+          setTempValues(prev => ({ ...prev, [key]: value }));
+        };
+
+        return (
+          <div className="space-y-4">
+            {ideas.map((idea, index) => {
+              const titleKey = `${idea.id}-text`;
+              const descKey = `${idea.id}-description`;
+              const isEditingTitle = editingStates[titleKey];
+              const isEditingDesc = editingStates[descKey];
+
+              return (
+                <div key={idea.id} className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1">
+                      <div className="flex items-start gap-2 mb-2">
+                        {isEditingTitle ? (
+                          <input
+                            type="text"
+                            value={tempValues[titleKey] || ''}
+                            onChange={(e) => updateTempValue(idea.id, 'text', e.target.value)}
+                            onBlur={() => handleEditToggle(idea.id, 'text')}
+                            onKeyDown={(e) => handleKeyPress(e, idea.id, 'text')}
+                            className="flex-1 font-medium text-slate-800 bg-white border border-blue-500 rounded px-2 py-1 focus:outline-none"
+                            autoFocus
+                          />
+                        ) : (
+                          <p className="flex-1 font-medium text-slate-700">{idea.text}</p>
+                        )}
+                        <button
+                          onClick={() => handleEditToggle(idea.id, 'text')}
+                          className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                          title={isEditingTitle ? "Save title" : "Edit title"}
+                        >
+                          <EditIcon className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Description Section */}
+                      <div className="mb-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs text-slate-500">Description:</span>
+                          <button
+                            onClick={() => handleEditToggle(idea.id, 'description')}
+                            className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                            title={isEditingDesc ? "Save description" : "Edit description"}
+                          >
+                            <EditIcon className="w-3 h-3" />
+                          </button>
+                        </div>
+
+                        {isEditingDesc ? (
+                          <div className="space-y-2">
+                            <textarea
+                              value={tempValues[descKey] || ''}
+                              onChange={(e) => updateTempValue(idea.id, 'description', e.target.value)}
+                              onKeyDown={(e) => handleKeyPress(e, idea.id, 'description')}
+                              placeholder="Add description for this idea..."
+                              className="w-full text-sm p-2 rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500"
+                              rows={2}
+                              autoFocus
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleEditToggle(idea.id, 'description')}
+                                className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setTempValues(prev => ({ ...prev, [descKey]: idea.description || '' }));
+                                  setEditingStates(prev => ({ ...prev, [descKey]: false }));
+                                }}
+                                className="px-2 py-1 text-xs bg-slate-200 text-slate-700 rounded hover:bg-slate-300"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-sm text-slate-600 bg-white p-2 rounded border">
+                            {idea.description || <em className="text-slate-400">No description added yet.</em>}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => onReorderIdea(idea.id, 'up')}
+                          disabled={index === 0}
+                          title="Move Up"
+                          className="p-1 rounded-md text-slate-500 hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <ChevronUpIcon className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => onReorderIdea(idea.id, 'down')}
+                          disabled={index === ideas.length - 1}
+                          title="Move Down"
+                          className="p-1 rounded-md text-slate-500 hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <ChevronDownIcon className="w-5 h-5" />
+                        </button>
+                      </div>
+                      <div className="h-6 border-l border-slate-300"></div>
+                      <button
+                        onClick={() => onCopyFromVault(idea.id)}
+                        title="Copy to Brain Dump"
+                        className="p-1 text-blue-600 hover:text-blue-800"
+                      >
+                        <RestoreIcon className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => onDeleteIdea(idea.id)}
+                        title="Delete Idea Permanently"
+                        className="p-1 text-red-600 hover:text-red-800"
+                      >
+                        <TrashIcon className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         );
       };
@@ -1290,6 +1716,7 @@
             isCompleted: false,
             scheduledTime: '',
             notes: '',
+            description: '',
           }))
         );
 
@@ -1308,6 +1735,7 @@
             isCompleted: false,
             isIncomeGenerating: false,
             notes: '',
+            description: '',
             scheduledTime: '',
             duration: 60,
           };
@@ -1369,7 +1797,13 @@
         const handleSendToVault = (id) => {
           const taskToVault = brainDump.find(t => t.id === id);
           if (taskToVault) {
-            setIdeasVault(prev => [taskToVault, ...prev]);
+            // Preserve the description when sending to vault
+            const vaultTask = {
+              id: taskToVault.id,
+              text: taskToVault.text,
+              description: taskToVault.description || ''
+            };
+            setIdeasVault(prev => [vaultTask, ...prev]);
             setBrainDump(prev => prev.filter(t => t.id !== id));
           }
         };
@@ -1377,7 +1811,17 @@
         const handleCopyFromVault = (id) => {
           const taskToCopy = ideasVault.find(t => t.id === id);
           if (taskToCopy) {
-            const newActionableTask = { ...taskToCopy, id: generateUUID() };
+            const newActionableTask = {
+              ...taskToCopy,
+              id: generateUUID(),
+              isCompleted: false,
+              isIncomeGenerating: false,
+              notes: '',
+              scheduledTime: '',
+              duration: 60,
+              // Preserve the description from the vault
+              description: taskToCopy.description || ''
+            };
             setBrainDump(prev => [newActionableTask, ...prev]);
             alert(`Copied "${taskToCopy.text}" to Brain Dump.`);
           }
@@ -1549,30 +1993,15 @@
                 {showIdeasVault && (
                   <div className="mt-4 pt-4 border-t">
                     {ideasVault.length > 0 ? (
-                      <div className="space-y-3">
-                        {ideasVault.map((task, index) => (
-                          <div key={task.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                            <p className="text-slate-700">{task.text}</p>
-                            <div className="flex items-center gap-2">
-                              <div className="flex items-center gap-1">
-                                <button onClick={() => handleReorderIdea(task.id, 'up')} disabled={index === 0} title="Move Up" className="p-1 rounded-md text-slate-500 hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed">
-                                  <ChevronUpIcon className="w-5 h-5" />
-                                </button>
-                                <button onClick={() => handleReorderIdea(task.id, 'down')} disabled={index === ideasVault.length - 1} title="Move Down" className="p-1 rounded-md text-slate-500 hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed">
-                                  <ChevronDownIcon className="w-5 h-5" />
-                                </button>
-                              </div>
-                              <div className="h-6 border-l border-slate-300"></div>
-                              <button onClick={() => handleCopyFromVault(task.id)} title="Copy to Brain Dump" className="p-1 text-blue-600 hover:text-blue-800">
-                                <RestoreIcon className="w-5 h-5" />
-                              </button>
-                              <button onClick={() => handleDeleteTask(task.id, setIdeasVault)} title="Delete Idea Permanently" className="p-1 text-red-600 hover:text-red-800">
-                                <TrashIcon className="w-5 h-5" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                      <IdeasVaultList
+                        ideas={ideasVault}
+                        onUpdateIdea={(updatedIdea) => {
+                          setIdeasVault(prev => prev.map(idea => idea.id === updatedIdea.id ? updatedIdea : idea));
+                        }}
+                        onReorderIdea={handleReorderIdea}
+                        onCopyFromVault={handleCopyFromVault}
+                        onDeleteIdea={(id) => handleDeleteTask(id, setIdeasVault)}
+                      />
                     ) : (
                       <p className="text-slate-500 text-center py-4">Send ideas here to review later.</p>
                     )}
