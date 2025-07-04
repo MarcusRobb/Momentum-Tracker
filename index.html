@@ -263,6 +263,95 @@
         downloadCSV(csvData, filename);
       };
 
+      const exportUncompletedTasks = (brainDump, topThree, nonNegotiableTasks, ideasVault) => {
+        const timestamp = new Date().toISOString().split('T')[0];
+
+        // Filter uncompleted tasks from each section
+        const uncompletedBrainDump = brainDump.filter(task => !task.isCompleted);
+        const uncompletedTopThree = topThree.filter(task => !task.isCompleted);
+        const uncompletedNonNegotiables = nonNegotiableTasks.filter(task => !task.isCompleted);
+
+        // Check if there are any uncompleted tasks
+        const totalUncompleted = uncompletedBrainDump.length + uncompletedTopThree.length + uncompletedNonNegotiables.length + ideasVault.length;
+
+        if (totalUncompleted === 0) {
+          alert('No uncompleted tasks to export');
+          return;
+        }
+
+        // Create summary
+        const summary = {
+          export_date: new Date().toLocaleDateString(),
+          export_time: new Date().toLocaleTimeString(),
+          uncompleted_top_three: uncompletedTopThree.length,
+          uncompleted_brain_dump: uncompletedBrainDump.length,
+          uncompleted_non_negotiables: uncompletedNonNegotiables.length,
+          ideas_in_vault: ideasVault.length,
+          total_uncompleted_items: totalUncompleted
+        };
+
+        let csvContent = '=== UNCOMPLETED TASKS EXPORT ===\n\n';
+        csvContent += '=== SUMMARY ===\n';
+        csvContent += arrayToCSV([summary]) + '\n\n';
+
+        // Export Top 3 Priorities (uncompleted)
+        if (uncompletedTopThree.length > 0) {
+          csvContent += '=== TOP 3 PRIORITIES (UNCOMPLETED) ===\n';
+          const topThreeForExport = uncompletedTopThree.map(task => ({
+            section: 'Top 3 Priorities',
+            task: task.text,
+            description: task.description || '',
+            scheduled_time: task.scheduledTime || '',
+            duration_minutes: task.duration || '',
+            is_income_generating: task.isIncomeGenerating ? 'Yes' : 'No',
+            action_notes: task.notes || ''
+          }));
+          csvContent += arrayToCSV(topThreeForExport) + '\n\n';
+        }
+
+        // Export Brain Dump (uncompleted)
+        if (uncompletedBrainDump.length > 0) {
+          csvContent += '=== BRAIN DUMP (UNCOMPLETED) ===\n';
+          const brainDumpForExport = uncompletedBrainDump.map(task => ({
+            section: 'Brain Dump',
+            task: task.text,
+            description: task.description || '',
+            scheduled_time: task.scheduledTime || '',
+            duration_minutes: task.duration || '',
+            is_income_generating: task.isIncomeGenerating ? 'Yes' : 'No',
+            action_notes: task.notes || ''
+          }));
+          csvContent += arrayToCSV(brainDumpForExport) + '\n\n';
+        }
+
+        // Export Non-Negotiables (uncompleted)
+        if (uncompletedNonNegotiables.length > 0) {
+          csvContent += '=== NON-NEGOTIABLES (UNCOMPLETED) ===\n';
+          const nonNegotiablesForExport = uncompletedNonNegotiables.map(task => ({
+            section: 'Non-Negotiables',
+            task: task.text,
+            description: task.description || '',
+            scheduled_time: task.scheduledTime || '',
+            is_income_generating: task.isIncomeGenerating ? 'Yes' : 'No'
+          }));
+          csvContent += arrayToCSV(nonNegotiablesForExport) + '\n\n';
+        }
+
+        // Export Ideas Vault
+        if (ideasVault.length > 0) {
+          csvContent += '=== IDEAS VAULT ===\n';
+          const ideasForExport = ideasVault.map(idea => ({
+            section: 'Ideas Vault',
+            idea: idea.text,
+            description: idea.description || ''
+          }));
+          csvContent += arrayToCSV(ideasForExport) + '\n\n';
+        }
+
+        const filename = `uncompleted-tasks-${timestamp}.csv`;
+        downloadCSV(csvContent, filename);
+      };
+
       const exportAllData = (lapsHistory, accountabilityHistory, completedHistory, brainDump, topThree, ideasVault) => {
         const timestamp = new Date().toISOString().split('T')[0];
 
@@ -1941,6 +2030,14 @@
                   <h1 className="text-2xl font-bold text-slate-800">Momentum Tracker</h1>
                 </div>
                 <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => exportUncompletedTasks(brainDump, topThree, nonNegotiableTasks, ideasVault)}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-green-600 bg-green-50 rounded-md hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                    title="Export all uncompleted tasks from all sections to CSV"
+                  >
+                    <DownloadIcon className="w-4 h-4" />
+                    Export Uncompleted
+                  </button>
                   <button
                     onClick={() => exportAllData(lapsHistory, accountabilityHistory, completedHistory, brainDump, topThree, ideasVault)}
                     className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
