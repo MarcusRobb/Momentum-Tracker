@@ -1,0 +1,1951 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Momentum Tracker - Personal Productivity System</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React and ReactDOM from CDN (UMD builds) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Babel for JSX transformation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  </head>
+  <body>
+    <!-- The root element for the React app -->
+    <div id="root"></div>
+
+    <script type="text/babel">
+      const { useState, useCallback, useEffect, useMemo, useRef } = React;
+
+      // UUID generation with fallback for older browsers
+      const generateUUID = () => {
+        if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+          return crypto.randomUUID();
+        }
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+          const r = Math.random() * 16 | 0;
+          const v = c === 'x' ? r : (r & 0x3 | 0x8);
+          return v.toString(16);
+        });
+      };
+
+      // User Management System
+      const UserManager = {
+        getCurrentUser: () => {
+          const userData = localStorage.getItem('momentum-current-user');
+          return userData ? JSON.parse(userData) : null;
+        },
+        
+        setCurrentUser: (user) => {
+          localStorage.setItem('momentum-current-user', JSON.stringify(user));
+        },
+        
+        createUser: (profile) => {
+          const user = {
+            id: generateUUID(),
+            ...profile,
+            createdAt: new Date().toISOString(),
+            settings: {
+              nonNegotiables: profile.nonNegotiables || [],
+              calendarProvider: profile.calendarProvider || 'google',
+              aiProvider: profile.aiProvider || 'none',
+              aiApiKey: profile.aiApiKey || null,
+              ...profile.settings
+            }
+          };
+          
+          // Save user profile
+          const users = JSON.parse(localStorage.getItem('momentum-users') || '[]');
+          users.push(user);
+          localStorage.setItem('momentum-users', JSON.stringify(users));
+          
+          return user;
+        },
+        
+        getDataKey: (userId, dataType) => `momentum-${userId}-${dataType}`,
+        
+        getUserData: (userId, dataType, defaultValue = []) => {
+          const key = UserManager.getDataKey(userId, dataType);
+          const data = localStorage.getItem(key);
+          return data ? JSON.parse(data) : defaultValue;
+        },
+        
+        setUserData: (userId, dataType, data) => {
+          const key = UserManager.getDataKey(userId, dataType);
+          localStorage.setItem(key, JSON.stringify(data));
+        }
+      };
+
+      // Multi-User LocalStorage Hook
+      const useUserLocalStorage = (dataType, initialValue) => {
+        const currentUser = UserManager.getCurrentUser();
+        const userId = currentUser?.id;
+        
+        const [storedValue, setStoredValue] = useState(() => {
+          if (!userId) return initialValue;
+          return UserManager.getUserData(userId, dataType, initialValue);
+        });
+
+        const setValue = (value) => {
+          if (!userId) return;
+          
+          const valueToStore = value instanceof Function ? value(storedValue) : value;
+          setStoredValue(valueToStore);
+          UserManager.setUserData(userId, dataType, valueToStore);
+        };
+
+        return [storedValue, setValue];
+      };
+
+      // Pre-defined Non-Negotiable Templates
+      const NON_NEGOTIABLE_TEMPLATES = [
+        { category: "Health & Fitness", tasks: [
+          { text: "Morning workout (30 mins)", duration: 30 },
+          { text: "Evening walk", duration: 20 },
+          { text: "Meditation", duration: 15 },
+          { text: "Drink 8 glasses of water", duration: 5 }
+        ]},
+        { category: "Business & Career", tasks: [
+          { text: "Prospecting (1 hour)", duration: 60 },
+          { text: "LinkedIn engagement", duration: 30 },
+          { text: "Skill development", duration: 45 },
+          { text: "Industry reading", duration: 20 }
+        ]},
+        { category: "Personal Development", tasks: [
+          { text: "Read for 30 minutes", duration: 30 },
+          { text: "Journal writing", duration: 15 },
+          { text: "Plan tomorrow", duration: 10 },
+          { text: "Gratitude practice", duration: 5 }
+        ]},
+        { category: "Family & Relationships", tasks: [
+          { text: "Quality time with family", duration: 60 },
+          { text: "Call a friend", duration: 15 },
+          { text: "Date night planning", duration: 10 },
+          { text: "Check in with parents", duration: 10 }
+        ]}
+      ];
+
+      // Setup Wizard Component
+      const SetupWizard = ({ onComplete }) => {
+        const [step, setStep] = useState(1);
+        const [profile, setProfile] = useState({
+          name: '',
+          email: '',
+          nonNegotiables: [],
+          calendarProvider: 'google',
+          aiProvider: 'none',
+          aiApiKey: ''
+        });
+
+        const handleNext = () => setStep(step + 1);
+        const handleBack = () => setStep(step - 1);
+
+        const handleComplete = () => {
+          const user = UserManager.createUser(profile);
+          UserManager.setCurrentUser(user);
+          onComplete(user);
+        };
+
+        const addNonNegotiable = (task) => {
+          if (profile.nonNegotiables.length < 3) {
+            setProfile(prev => ({
+              ...prev,
+              nonNegotiables: [...prev.nonNegotiables, { ...task, id: generateUUID() }]
+            }));
+          }
+        };
+
+        const removeNonNegotiable = (id) => {
+          setProfile(prev => ({
+            ...prev,
+            nonNegotiables: prev.nonNegotiables.filter(task => task.id !== id)
+          }));
+        };
+
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-8">
+              
+              {/* Progress Bar */}
+              <div className="mb-8">
+                <div className="flex justify-between text-sm text-gray-500 mb-2">
+                  <span>Step {step} of 4</span>
+                  <span>{Math.round((step / 4) * 100)}% Complete</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${(step / 4) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
+
+              {/* Step 1: Personal Info */}
+              {step === 1 && (
+                <div>
+                  <h2 className="text-3xl font-bold text-gray-800 mb-2">Welcome to Momentum Tracker!</h2>
+                  <p className="text-gray-600 mb-6">Let's set up your personal productivity system.</p>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Your Name</label>
+                      <input
+                        type="text"
+                        value={profile.name}
+                        onChange={(e) => setProfile(prev => ({ ...prev, name: e.target.value }))}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter your full name"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Email (Optional)</label>
+                      <input
+                        type="email"
+                        value={profile.email}
+                        onChange={(e) => setProfile(prev => ({ ...prev, email: e.target.value }))}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="your@email.com"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-end mt-8">
+                    <button
+                      onClick={handleNext}
+                      disabled={!profile.name.trim()}
+                      className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Next →
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: Non-Negotiables */}
+              {step === 2 && (
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800 mb-2">Choose Your Daily Non-Negotiables</h2>
+                  <p className="text-gray-600 mb-6">Select up to 3 tasks you want to do every weekday. These will appear in your tracker automatically.</p>
+                  
+                  <div className="mb-6">
+                    <h3 className="font-semibold text-gray-700 mb-2">Selected ({profile.nonNegotiables.length}/3):</h3>
+                    <div className="space-y-2">
+                      {profile.nonNegotiables.map(task => (
+                        <div key={task.id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                          <span className="font-medium">{task.text}</span>
+                          <button
+                            onClick={() => removeNonNegotiable(task.id)}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                      {profile.nonNegotiables.length === 0 && (
+                        <p className="text-gray-500 italic">No tasks selected yet</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {NON_NEGOTIABLE_TEMPLATES.map(category => (
+                      <div key={category.category}>
+                        <h4 className="font-semibold text-gray-700 mb-2">{category.category}</h4>
+                        <div className="grid grid-cols-1 gap-2">
+                          {category.tasks.map((task, index) => (
+                            <button
+                              key={index}
+                              onClick={() => addNonNegotiable(task)}
+                              disabled={profile.nonNegotiables.length >= 3}
+                              className="text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <div className="font-medium">{task.text}</div>
+                              <div className="text-sm text-gray-500">{task.duration} minutes</div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div className="flex justify-between mt-8">
+                    <button
+                      onClick={handleBack}
+                      className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                    >
+                      ← Back
+                    </button>
+                    <button
+                      onClick={handleNext}
+                      className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                      Next →
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: Calendar Integration */}
+              {step === 3 && (
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800 mb-2">Calendar Integration</h2>
+                  <p className="text-gray-600 mb-6">Choose your preferred calendar for scheduling tasks.</p>
+
+                  <div className="space-y-3">
+                    {[
+                      { id: 'google', name: 'Google Calendar', icon: '📅', description: 'Most popular choice' },
+                      { id: 'outlook', name: 'Microsoft Outlook', icon: '📆', description: 'Great for business users' },
+                      { id: 'apple', name: 'Apple Calendar', icon: '🍎', description: 'Perfect for Mac/iPhone users' },
+                      { id: 'other', name: 'Other/Manual', icon: '📝', description: 'I\'ll add events manually' }
+                    ].map(option => (
+                      <label key={option.id} className="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                        <input
+                          type="radio"
+                          name="calendar"
+                          value={option.id}
+                          checked={profile.calendarProvider === option.id}
+                          onChange={(e) => setProfile(prev => ({ ...prev, calendarProvider: e.target.value }))}
+                          className="mr-4"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center">
+                            <span className="text-2xl mr-3">{option.icon}</span>
+                            <div>
+                              <div className="font-semibold">{option.name}</div>
+                              <div className="text-sm text-gray-500">{option.description}</div>
+                            </div>
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="flex justify-between mt-8">
+                    <button
+                      onClick={handleBack}
+                      className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                    >
+                      ← Back
+                    </button>
+                    <button
+                      onClick={handleNext}
+                      className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                      Next →
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 4: AI Assistant */}
+              {step === 4 && (
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800 mb-2">AI Assistant (Optional)</h2>
+                  <p className="text-gray-600 mb-6">Choose an AI assistant to help with task planning and brainstorming.</p>
+
+                  <div className="space-y-3 mb-6">
+                    {[
+                      { id: 'none', name: 'No AI Assistant', icon: '🚫', description: 'I prefer to work without AI help' },
+                      { id: 'openai', name: 'ChatGPT (OpenAI)', icon: '🤖', description: 'Requires your OpenAI API key' },
+                      { id: 'gemini', name: 'Google Gemini', icon: '✨', description: 'Requires your Google AI API key' }
+                    ].map(option => (
+                      <label key={option.id} className="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                        <input
+                          type="radio"
+                          name="ai"
+                          value={option.id}
+                          checked={profile.aiProvider === option.id}
+                          onChange={(e) => setProfile(prev => ({ ...prev, aiProvider: e.target.value }))}
+                          className="mr-4"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center">
+                            <span className="text-2xl mr-3">{option.icon}</span>
+                            <div>
+                              <div className="font-semibold">{option.name}</div>
+                              <div className="text-sm text-gray-500">{option.description}</div>
+                            </div>
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+
+                  {profile.aiProvider !== 'none' && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                      <h4 className="font-semibold text-yellow-800 mb-2">API Key Required</h4>
+                      <p className="text-sm text-yellow-700 mb-3">
+                        You'll need your own API key for {profile.aiProvider === 'openai' ? 'OpenAI' : 'Google AI'}.
+                        This keeps your usage private and under your control.
+                      </p>
+                      <input
+                        type="password"
+                        value={profile.aiApiKey}
+                        onChange={(e) => setProfile(prev => ({ ...prev, aiApiKey: e.target.value }))}
+                        placeholder={`Enter your ${profile.aiProvider === 'openai' ? 'OpenAI' : 'Google AI'} API key`}
+                        className="w-full p-3 border border-yellow-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                      />
+                      <p className="text-xs text-yellow-600 mt-2">
+                        Your API key is stored locally and never shared. You can change this later in settings.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between mt-8">
+                    <button
+                      onClick={handleBack}
+                      className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                    >
+                      ← Back
+                    </button>
+                    <button
+                      onClick={handleComplete}
+                      className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                    >
+                      Complete Setup 🎉
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      };
+
+      // Icon Components (same as before)
+      const PlusIcon = ({ className }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+      );
+
+      const TrashIcon = ({ className }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          <line x1="10" y1="11" x2="10" y2="17"></line>
+          <line x1="14" y1="11" x2="14" y2="17"></line>
+        </svg>
+      );
+
+      const ArrowUpCircleIcon = ({ className }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="16 12 12 8 8 12"></polyline>
+          <line x1="12" y1="16" x2="12" y2="8"></line>
+        </svg>
+      );
+
+      const ArrowDownCircleIcon = ({ className }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="8 12 12 16 16 12"></polyline>
+          <line x1="12" y1="8" x2="12" y2="16"></line>
+        </svg>
+      );
+
+      const ChevronDownIcon = ({ className }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      );
+
+      const DollarSignIcon = ({ className }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <line x1="12" y1="1" x2="12" y2="23"></line>
+          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+        </svg>
+      );
+
+      const CalendarIcon = ({ className }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+          <line x1="16" y1="2" x2="16" y2="6"></line>
+          <line x1="8" y1="2" x2="8" y2="6"></line>
+          <line x1="3" y1="10" x2="21" y2="10"></line>
+        </svg>
+      );
+
+      const SparkleIcon = ({ className }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <path d="M12 2L9.1 8.26 3 9.27l4.55 4.34L6.2 20 12 16.54 17.8 20l-1.35-6.39L21 9.27l-6.1-1.01L12 2z"></path>
+          <path d="M5 3v4"></path>
+          <path d="M19 17v4"></path>
+          <path d="M3 5h4"></path>
+          <path d="M17 19h4"></path>
+        </svg>
+      );
+
+      const SettingsIcon = ({ className }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1m11-7a4 4 0 0 1 0 8 4 4 0 0 1 0-8z"></path>
+        </svg>
+      );
+
+      const EditIcon = ({ className }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+        </svg>
+      );
+
+      const ClipboardCopyIcon = ({ className }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+      );
+
+      const DownloadIcon = ({ className }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+      );
+
+      const RestoreIcon = ({ className }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <path d="M9 14l-4-4 4-4"></path>
+          <path d="M5 10h11a4 4 0 0 1 4 4v1"></path>
+        </svg>
+      );
+
+      const LightbulbIcon = ({ className }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <path d="M9 18h6"></path>
+          <path d="M10 22h4"></path>
+          <path d="M12 2a7 7 0 0 0-7 7c0 3.03 1.09 5.4 2.78 6.88L12 22l4.22-6.12C17.91 14.4 19 11.03 19 9a7 7 0 0 0-7-7z"></path>
+        </svg>
+      );
+
+      const XIcon = ({ className }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      );
+
+      const ChevronUpIcon = ({ className }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <polyline points="18 15 12 9 6 15"></polyline>
+        </svg>
+      );
+
+      // Calendar Integration Helper
+      const getCalendarUrl = (task, calendarProvider, openForBrowsing = false) => {
+        // If opening for browsing without time, create basic event
+        if (!task.scheduledTime || openForBrowsing) {
+          switch (calendarProvider) {
+            case 'google':
+              const googleUrl = new URL('https://www.google.com/calendar/render');
+              googleUrl.searchParams.append('action', 'TEMPLATE');
+              googleUrl.searchParams.append('text', task.text);
+              googleUrl.searchParams.append('details', `${task.notes || `Completing task: ${task.text}`}\n\n⏰ Set your preferred time in the calendar`);
+              return googleUrl.toString();
+
+            case 'outlook':
+              const outlookUrl = new URL('https://outlook.live.com/calendar/0/deeplink/compose');
+              outlookUrl.searchParams.append('subject', task.text);
+              outlookUrl.searchParams.append('body', `${task.notes || `Completing task: ${task.text}`}\n\n⏰ Set your preferred time in the calendar`);
+              return outlookUrl.toString();
+
+            case 'apple':
+              return `data:text/calendar;charset=utf8,BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+SUMMARY:${task.text}
+DESCRIPTION:${task.notes || `Completing task: ${task.text}`}\\n\\n⏰ Set your preferred time in the calendar
+END:VEVENT
+END:VCALENDAR`;
+
+            default:
+              return null;
+          }
+        }
+
+        const [hours, minutes] = task.scheduledTime.split(':').map(Number);
+        const startTime = new Date();
+        startTime.setHours(hours, minutes, 0, 0);
+        const durationMinutes = task.duration || 60;
+        const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000);
+
+        const toGoogleFormat = (date) => date.toISOString().replace(/-|:|\.\d{3}/g, '');
+
+        switch (calendarProvider) {
+          case 'google':
+            const googleUrl = new URL('https://www.google.com/calendar/render');
+            googleUrl.searchParams.append('action', 'TEMPLATE');
+            googleUrl.searchParams.append('text', task.text);
+            googleUrl.searchParams.append('dates', `${toGoogleFormat(startTime)}/${toGoogleFormat(endTime)}`);
+            googleUrl.searchParams.append('details', task.notes || `Completing task: ${task.text}`);
+            return googleUrl.toString();
+
+          case 'outlook':
+            const outlookUrl = new URL('https://outlook.live.com/calendar/0/deeplink/compose');
+            outlookUrl.searchParams.append('subject', task.text);
+            outlookUrl.searchParams.append('startdt', startTime.toISOString());
+            outlookUrl.searchParams.append('enddt', endTime.toISOString());
+            outlookUrl.searchParams.append('body', task.notes || `Completing task: ${task.text}`);
+            return outlookUrl.toString();
+
+          case 'apple':
+            // Apple Calendar uses webcal:// protocol, but we'll provide instructions
+            return `data:text/calendar;charset=utf8,BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+DTSTART:${toGoogleFormat(startTime)}
+DTEND:${toGoogleFormat(endTime)}
+SUMMARY:${task.text}
+DESCRIPTION:${task.notes || `Completing task: ${task.text}`}
+END:VEVENT
+END:VCALENDAR`;
+
+          default:
+            return null;
+        }
+      };
+
+      // AI Integration Helper
+      const callAI = async (task, prompt, user) => {
+        if (user.settings.aiProvider === 'none') {
+          throw new Error('AI assistant is disabled in your settings');
+        }
+
+        if (!user.settings.aiApiKey) {
+          throw new Error('Please add your API key in settings to use AI features');
+        }
+
+        const contextualPrompt = `
+You are an AI assistant helping with productivity and business tasks.
+
+TASK CONTEXT:
+- Task: "${task.text}"
+- Notes: "${task.notes || 'No additional notes'}"
+- Income-Generating Activity: ${task.isIncomeGenerating ? 'Yes' : 'No'}
+
+USER REQUEST:
+${prompt}
+
+Please provide helpful, actionable advice related to this specific task. Be concise but thorough.
+`;
+
+        if (user.settings.aiProvider === 'openai') {
+          const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${user.settings.aiApiKey}`
+            },
+            body: JSON.stringify({
+              model: 'gpt-3.5-turbo',
+              messages: [{ role: 'user', content: contextualPrompt }],
+              max_tokens: 500,
+              temperature: 0.7
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to get response from ChatGPT');
+          }
+
+          const data = await response.json();
+          return data.choices[0].message.content;
+
+        } else if (user.settings.aiProvider === 'gemini') {
+          const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${user.settings.aiApiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: contextualPrompt }] }],
+                generationConfig: { temperature: 0.7, maxOutputTokens: 500 }
+              })
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error('Failed to get response from Gemini');
+          }
+
+          const data = await response.json();
+          return data.candidates[0].content.parts[0].text;
+        }
+      };
+
+      // CSV Export Utilities
+      const downloadCSV = (data, filename) => {
+        const blob = new Blob([data], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+
+      const arrayToCSV = (array) => {
+        if (!array || array.length === 0) return '';
+
+        const headers = Object.keys(array[0]);
+        const csvHeaders = headers.join(',');
+
+        const csvRows = array.map(row =>
+          headers.map(header => {
+            const value = row[header];
+            // Escape quotes and wrap in quotes if contains comma, quote, or newline
+            if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
+              return `"${value.replace(/"/g, '""')}"`;
+            }
+            return value;
+          }).join(',')
+        );
+
+        return [csvHeaders, ...csvRows].join('\n');
+      };
+
+      const exportCompletedTasks = (completedHistory) => {
+        if (!completedHistory || completedHistory.length === 0) {
+          alert('No completed tasks to export');
+          return;
+        }
+
+        const tasksForExport = completedHistory.map(task => ({
+          task: task.text,
+          completed_date: new Date(task.completedAt).toLocaleDateString(),
+          completed_time: new Date(task.completedAt).toLocaleTimeString(),
+          was_income_generating: task.isIncomeGenerating ? 'Yes' : 'No',
+          description: task.description || '',
+          notes: task.notes || '',
+          scheduled_time: task.scheduledTime || '',
+          duration_minutes: task.duration || ''
+        }));
+
+        const csvData = arrayToCSV(tasksForExport);
+        const filename = `completed-tasks-${new Date().toISOString().split('T')[0]}.csv`;
+        downloadCSV(csvData, filename);
+      };
+
+      const exportUncompletedTasks = (brainDump, topThree, nonNegotiableTasks, ideasVault) => {
+        const timestamp = new Date().toISOString().split('T')[0];
+
+        // Filter uncompleted tasks from each section
+        const uncompletedBrainDump = brainDump.filter(task => !task.isCompleted);
+        const uncompletedTopThree = topThree.filter(task => !task.isCompleted);
+        const uncompletedNonNegotiables = nonNegotiableTasks.filter(task => !task.isCompleted);
+
+        // Check if there are any uncompleted tasks
+        const totalUncompleted = uncompletedBrainDump.length + uncompletedTopThree.length + uncompletedNonNegotiables.length + ideasVault.length;
+
+        if (totalUncompleted === 0) {
+          alert('No uncompleted tasks to export');
+          return;
+        }
+
+        // Create summary
+        const summary = {
+          export_date: new Date().toLocaleDateString(),
+          export_time: new Date().toLocaleTimeString(),
+          uncompleted_top_three: uncompletedTopThree.length,
+          uncompleted_brain_dump: uncompletedBrainDump.length,
+          uncompleted_non_negotiables: uncompletedNonNegotiables.length,
+          ideas_in_vault: ideasVault.length,
+          total_uncompleted_items: totalUncompleted
+        };
+
+        let csvContent = '=== UNCOMPLETED TASKS EXPORT ===\n\n';
+        csvContent += '=== SUMMARY ===\n';
+        csvContent += arrayToCSV([summary]) + '\n\n';
+
+        // Export Top 3 Priorities (uncompleted)
+        if (uncompletedTopThree.length > 0) {
+          csvContent += '=== TOP 3 PRIORITIES (UNCOMPLETED) ===\n';
+          const topThreeForExport = uncompletedTopThree.map(task => ({
+            section: 'Top 3 Priorities',
+            task: task.text,
+            description: task.description || '',
+            scheduled_time: task.scheduledTime || '',
+            duration_minutes: task.duration || '',
+            is_income_generating: task.isIncomeGenerating ? 'Yes' : 'No',
+            action_notes: task.notes || ''
+          }));
+          csvContent += arrayToCSV(topThreeForExport) + '\n\n';
+        }
+
+        // Export Brain Dump (uncompleted)
+        if (uncompletedBrainDump.length > 0) {
+          csvContent += '=== BRAIN DUMP (UNCOMPLETED) ===\n';
+          const brainDumpForExport = uncompletedBrainDump.map(task => ({
+            section: 'Brain Dump',
+            task: task.text,
+            description: task.description || '',
+            scheduled_time: task.scheduledTime || '',
+            duration_minutes: task.duration || '',
+            is_income_generating: task.isIncomeGenerating ? 'Yes' : 'No',
+            action_notes: task.notes || ''
+          }));
+          csvContent += arrayToCSV(brainDumpForExport) + '\n\n';
+        }
+
+        // Export Non-Negotiables (uncompleted)
+        if (uncompletedNonNegotiables.length > 0) {
+          csvContent += '=== NON-NEGOTIABLES (UNCOMPLETED) ===\n';
+          const nonNegotiablesForExport = uncompletedNonNegotiables.map(task => ({
+            section: 'Non-Negotiables',
+            task: task.text,
+            description: task.description || '',
+            scheduled_time: task.scheduledTime || '',
+            is_income_generating: task.isIncomeGenerating ? 'Yes' : 'No'
+          }));
+          csvContent += arrayToCSV(nonNegotiablesForExport) + '\n\n';
+        }
+
+        // Export Ideas Vault
+        if (ideasVault.length > 0) {
+          csvContent += '=== IDEAS VAULT ===\n';
+          const ideasForExport = ideasVault.map(idea => ({
+            section: 'Ideas Vault',
+            idea: idea.text,
+            description: idea.description || ''
+          }));
+          csvContent += arrayToCSV(ideasForExport) + '\n\n';
+        }
+
+        const filename = `uncompleted-tasks-${timestamp}.csv`;
+        downloadCSV(csvContent, filename);
+      };
+
+      const exportAllData = (completedHistory, brainDump, topThree, nonNegotiableTasks, ideasVault) => {
+        const timestamp = new Date().toISOString().split('T')[0];
+
+        // Create a comprehensive export
+        const summary = {
+          export_date: new Date().toLocaleDateString(),
+          export_time: new Date().toLocaleTimeString(),
+          total_completed_tasks: completedHistory.length,
+          current_brain_dump_tasks: brainDump.length,
+          current_top_three_tasks: topThree.length,
+          current_non_negotiables: nonNegotiableTasks.length,
+          ideas_in_vault: ideasVault.length
+        };
+
+        let csvContent = '=== MOMENTUM TRACKER DATA EXPORT ===\n\n';
+        csvContent += '=== SUMMARY ===\n';
+        csvContent += arrayToCSV([summary]) + '\n\n';
+
+        if (completedHistory.length > 0) {
+          csvContent += '=== COMPLETED TASKS ===\n';
+          const tasksForExport = completedHistory.map(task => ({
+            task: task.text,
+            completed_date: new Date(task.completedAt).toLocaleDateString(),
+            completed_time: new Date(task.completedAt).toLocaleTimeString(),
+            was_income_generating: task.isIncomeGenerating ? 'Yes' : 'No',
+            description: task.description || '',
+            notes: task.notes || '',
+            scheduled_time: task.scheduledTime || '',
+            duration_minutes: task.duration || ''
+          }));
+          csvContent += arrayToCSV(tasksForExport) + '\n\n';
+        }
+
+        const filename = `momentum-tracker-full-export-${timestamp}.csv`;
+        downloadCSV(csvContent, filename);
+      };
+
+      // 12-Hour Time Picker Component
+      const TimePicker12Hour = ({ value, onChange, className }) => {
+        // Convert 24-hour time to 12-hour format
+        const convertTo12Hour = (time24) => {
+          if (!time24) return { hour: '', minute: '', period: 'AM' };
+
+          const [hours, minutes] = time24.split(':');
+          const hour24 = parseInt(hours);
+          const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
+          const period = hour24 >= 12 ? 'PM' : 'AM';
+
+          return {
+            hour: hour12.toString(),
+            minute: minutes,
+            period: period
+          };
+        };
+
+        // Convert 12-hour time to 24-hour format
+        const convertTo24Hour = (hour, minute, period) => {
+          if (!hour || !minute) return '';
+
+          let hour24 = parseInt(hour);
+          if (period === 'AM' && hour24 === 12) {
+            hour24 = 0;
+          } else if (period === 'PM' && hour24 !== 12) {
+            hour24 += 12;
+          }
+
+          return `${hour24.toString().padStart(2, '0')}:${minute}`;
+        };
+
+        // Use state to track the current 12-hour values
+        const [timeData, setTimeData] = useState(() => convertTo12Hour(value));
+
+        // Update local state when external value changes
+        useEffect(() => {
+          setTimeData(convertTo12Hour(value));
+        }, [value]);
+
+        const handleTimeChange = (field, newValue) => {
+          const updatedTime = { ...timeData, [field]: newValue };
+          setTimeData(updatedTime);
+
+          // Only call onChange if we have both hour and minute
+          if (updatedTime.hour && updatedTime.minute) {
+            const time24 = convertTo24Hour(updatedTime.hour, updatedTime.minute, updatedTime.period);
+            if (time24) {
+              onChange(time24);
+            }
+          }
+        };
+
+        return (
+          <div className={`flex items-center gap-1 ${className}`}>
+            <select
+              value={timeData.hour}
+              onChange={(e) => handleTimeChange('hour', e.target.value)}
+              className="block w-16 text-sm p-2 rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Hr</option>
+              {Array.from({ length: 12 }, (_, i) => i + 1).map(hour => (
+                <option key={hour} value={hour}>{hour}</option>
+              ))}
+            </select>
+            <span className="text-slate-500">:</span>
+            <select
+              value={timeData.minute}
+              onChange={(e) => handleTimeChange('minute', e.target.value)}
+              className="block w-16 text-sm p-2 rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Min</option>
+              {Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0')).map(minute => (
+                <option key={minute} value={minute}>{minute}</option>
+              ))}
+            </select>
+            <select
+              value={timeData.period}
+              onChange={(e) => handleTimeChange('period', e.target.value)}
+              className="block w-16 text-sm p-2 rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="AM">AM</option>
+              <option value="PM">PM</option>
+            </select>
+          </div>
+        );
+      };
+
+      // AI Modal Component
+      const AIModal = ({ task, user, onClose }) => {
+        const [prompt, setPrompt] = useState('');
+        const [response, setResponse] = useState('');
+        const [isLoading, setIsLoading] = useState(false);
+        const [error, setError] = useState('');
+
+        const handleSubmit = async (e) => {
+          e.preventDefault();
+          if (!prompt.trim() || isLoading) return;
+
+          setIsLoading(true);
+          setError('');
+          setResponse('');
+
+          try {
+            const aiResponse = await callAI(task, prompt, user);
+            setResponse(aiResponse);
+          } catch (err) {
+            setError(err.message);
+          } finally {
+            setIsLoading(false);
+          }
+        };
+
+        if (user.settings.aiProvider === 'none') {
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
+              <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+                <h2 className="text-lg font-semibold text-slate-800 mb-4">AI Assistant Disabled</h2>
+                <p className="text-slate-600 mb-4">
+                  You chose not to use an AI assistant during setup. You can enable this feature in your settings.
+                </p>
+                <button
+                  onClick={onClose}
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl h-[80vh] flex flex-col">
+              <header className="flex items-center justify-between p-4 border-b">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-800">
+                    {user.settings.aiProvider === 'openai' ? '🤖 ChatGPT' : '✨ Gemini'} Assistant
+                  </h2>
+                  <p className="text-sm text-slate-500">Working on: {task.text}</p>
+                </div>
+                <button onClick={onClose} className="text-slate-400 hover:text-slate-600">✕</button>
+              </header>
+
+              <main className="flex-1 p-6 overflow-y-auto">
+                {response && (
+                  <div className="bg-slate-50 p-4 rounded-lg mb-4">
+                    <pre className="whitespace-pre-wrap font-sans text-slate-800">{response}</pre>
+                  </div>
+                )}
+                {error && (
+                  <div className="bg-red-50 border border-red-200 p-4 rounded-lg mb-4">
+                    <p className="text-red-800">{error}</p>
+                  </div>
+                )}
+                {isLoading && (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                    <p className="text-slate-600 mt-2">Thinking...</p>
+                  </div>
+                )}
+              </main>
+
+              <footer className="p-4 border-t">
+                <form onSubmit={handleSubmit} className="flex gap-3">
+                  <input
+                    type="text"
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    placeholder="Ask for help with this task..."
+                    className="flex-1 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    disabled={isLoading}
+                  />
+                  <button
+                    type="submit"
+                    disabled={!prompt.trim() || isLoading}
+                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    Ask AI
+                  </button>
+                </form>
+              </footer>
+            </div>
+          </div>
+        );
+      };
+
+      // Task Card Component with Description Support
+      const TaskCard = ({ task, onUpdate, onDelete, onPromote, onDemote, onSendToVault, onLaunchAI, isTopThree, user }) => {
+        const [editingStates, setEditingStates] = useState({});
+        const [tempValues, setTempValues] = useState({});
+
+        const handleToggle = (field, value) => {
+          onUpdate({ ...task, [field]: value });
+        };
+
+        const handleEditToggle = (field) => {
+          const key = `${task.id}-${field}`;
+
+          if (editingStates[key]) {
+            // Save the changes
+            const newValue = tempValues[key];
+            onUpdate({ ...task, [field]: newValue || '' });
+            setEditingStates(prev => ({ ...prev, [key]: false }));
+          } else {
+            // Start editing
+            setTempValues(prev => ({ ...prev, [key]: task[field] || '' }));
+            setEditingStates(prev => ({ ...prev, [key]: true }));
+          }
+        };
+
+        const handleKeyPress = (e, field) => {
+          if (e.key === 'Escape') {
+            const key = `${task.id}-${field}`;
+            setTempValues(prev => ({ ...prev, [key]: task[field] || '' }));
+            setEditingStates(prev => ({ ...prev, [key]: false }));
+          }
+        };
+
+        const updateTempValue = (field, value) => {
+          const key = `${task.id}-${field}`;
+          setTempValues(prev => ({ ...prev, [key]: value }));
+        };
+
+        const handleAddToCalendar = () => {
+          // Always open calendar - either for browsing or with scheduled time
+          const openForBrowsing = !task.scheduledTime;
+          const calendarUrl = getCalendarUrl(task, user.settings.calendarProvider, openForBrowsing);
+
+          if (calendarUrl) {
+            if (user.settings.calendarProvider === 'apple') {
+              // For Apple Calendar, download the .ics file
+              const link = document.createElement('a');
+              link.href = calendarUrl;
+              link.download = `${task.text.replace(/[^a-z0-9]/gi, '_')}.ics`;
+              link.click();
+            } else {
+              window.open(calendarUrl, '_blank', 'noopener,noreferrer');
+            }
+          } else {
+            alert("Calendar integration not available for your selected provider.");
+          }
+        };
+
+        const descKey = `${task.id}-description`;
+        const isEditingDesc = editingStates[descKey];
+
+        return (
+          <div className="p-4 rounded-lg flex items-start gap-4 bg-white border border-slate-200">
+            <input
+              type="checkbox"
+              checked={task.isCompleted}
+              onChange={(e) => handleToggle('isCompleted', e.target.checked)}
+              className="mt-1 h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 shrink-0"
+            />
+            <div className="flex-1">
+              <p className="font-medium text-slate-800 mb-2">{task.text}</p>
+
+              {/* Description Section */}
+              <div className="mb-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs text-slate-500">Description:</span>
+                  <button
+                    onClick={() => handleEditToggle('description')}
+                    className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                    title={isEditingDesc ? "Save description" : "Edit description"}
+                  >
+                    <EditIcon className="w-3 h-3" />
+                  </button>
+                </div>
+
+                {isEditingDesc ? (
+                  <div className="space-y-2">
+                    <textarea
+                      value={tempValues[descKey] || ''}
+                      onChange={(e) => updateTempValue('description', e.target.value)}
+                      onKeyDown={(e) => handleKeyPress(e, 'description')}
+                      placeholder="Add description for this task..."
+                      className="w-full text-sm p-2 rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500"
+                      rows={2}
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleEditToggle('description')}
+                        className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => {
+                          setTempValues(prev => ({ ...prev, [descKey]: task.description || '' }));
+                          setEditingStates(prev => ({ ...prev, [descKey]: false }));
+                        }}
+                        className="px-2 py-1 text-xs bg-slate-200 text-slate-700 rounded hover:bg-slate-300"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-slate-600 bg-slate-50 p-2 rounded border">
+                    {task.description || <em className="text-slate-400">No description added yet.</em>}
+                  </div>
+                )}
+              </div>
+
+              {isTopThree && (
+                <div className="mt-3 space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <TimePicker12Hour
+                      value={task.scheduledTime || ''}
+                      onChange={(time) => handleToggle('scheduledTime', time)}
+                      className="w-full"
+                    />
+                    <select
+                      value={task.duration || 60}
+                      onChange={(e) => handleToggle('duration', Number(e.target.value))}
+                      className="block w-full text-sm p-2 rounded-md border-slate-300 focus:ring-blue-500"
+                    >
+                      <option value="15">15 mins</option>
+                      <option value="30">30 mins</option>
+                      <option value="45">45 mins</option>
+                      <option value="60">1 hour</option>
+                      <option value="90">1.5 hours</option>
+                      <option value="120">2 hours</option>
+                    </select>
+                  </div>
+                  <button
+                    onClick={handleAddToCalendar}
+                    className="w-full flex items-center justify-center gap-2 p-2 rounded-md bg-white border border-slate-300 text-slate-600 hover:bg-slate-50"
+                  >
+                    <CalendarIcon className="w-5 h-5" />
+                    {task.scheduledTime ?
+                      `Add to ${user.settings.calendarProvider === 'google' ? 'Google' : user.settings.calendarProvider === 'outlook' ? 'Outlook' : user.settings.calendarProvider === 'apple' ? 'Apple' : ''} Calendar` :
+                      `Open ${user.settings.calendarProvider === 'google' ? 'Google' : user.settings.calendarProvider === 'outlook' ? 'Outlook' : user.settings.calendarProvider === 'apple' ? 'Apple' : ''} Calendar`
+                    }
+                  </button>
+                  <textarea
+                    placeholder="Action points & notes..."
+                    value={task.notes || ''}
+                    onChange={(e) => handleToggle('notes', e.target.value)}
+                    rows={3}
+                    className="block w-full text-sm p-2 rounded-md border-slate-300 focus:ring-blue-500"
+                  />
+                  <button
+                    onClick={() => handleToggle('isIncomeGenerating', !task.isIncomeGenerating)}
+                    className={`w-full flex items-center justify-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${
+                      task.isIncomeGenerating ? 'bg-yellow-400 text-yellow-900 hover:bg-yellow-500' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                    }`}
+                  >
+                    <DollarSignIcon className="w-4 h-4" />
+                    Income-Generating Activity
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Horizontal Action Icons */}
+            <div className="flex items-center gap-2 shrink-0">
+              {onPromote && (
+                <button
+                  onClick={onPromote}
+                  title="Promote to Top 3"
+                  className="p-1 text-slate-500 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
+                >
+                  <ArrowUpCircleIcon className="w-5 h-5" />
+                </button>
+              )}
+              {onDemote && (
+                <button
+                  onClick={onDemote}
+                  title="Demote to Brain Dump"
+                  className="p-1 text-slate-500 hover:text-yellow-600 hover:bg-yellow-50 rounded transition-colors"
+                >
+                  <ArrowDownCircleIcon className="w-5 h-5" />
+                </button>
+              )}
+              {onSendToVault && (
+                <button
+                  onClick={onSendToVault}
+                  title="Send to Ideas Vault"
+                  className="p-1 text-slate-500 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors"
+                >
+                  <LightbulbIcon className="w-5 h-5" />
+                </button>
+              )}
+              {user.settings.aiProvider !== 'none' && onLaunchAI && (
+                <button
+                  onClick={onLaunchAI}
+                  title="Ask AI Assistant"
+                  className="p-1 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                >
+                  <SparkleIcon className="w-5 h-5" />
+                </button>
+              )}
+              <button
+                onClick={onDelete}
+                title="Delete Task"
+                className="p-1 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+              >
+                <TrashIcon className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        );
+      };
+
+      // Ideas Vault List Component (enhanced with description editing)
+      const IdeasVaultList = ({ ideas, onUpdateIdea, onReorderIdea, onCopyFromVault, onDeleteIdea }) => {
+        const [editingStates, setEditingStates] = useState({});
+        const [tempValues, setTempValues] = useState({});
+
+        const handleEditToggle = (ideaId, field) => {
+          const key = `${ideaId}-${field}`;
+          const idea = ideas.find(i => i.id === ideaId);
+
+          if (editingStates[key]) {
+            // Save the changes
+            const newValue = tempValues[key];
+            if (field === 'text' && !newValue?.trim()) {
+              // Don't allow empty titles
+              setTempValues(prev => ({ ...prev, [key]: idea[field] }));
+            } else {
+              onUpdateIdea({ ...idea, [field]: newValue || '' });
+            }
+            setEditingStates(prev => ({ ...prev, [key]: false }));
+          } else {
+            // Start editing
+            setTempValues(prev => ({ ...prev, [key]: idea[field] || '' }));
+            setEditingStates(prev => ({ ...prev, [key]: true }));
+          }
+        };
+
+        const handleKeyPress = (e, ideaId, field) => {
+          if (e.key === 'Enter' && field === 'text') {
+            handleEditToggle(ideaId, field);
+          } else if (e.key === 'Escape') {
+            const key = `${ideaId}-${field}`;
+            const idea = ideas.find(i => i.id === ideaId);
+            setTempValues(prev => ({ ...prev, [key]: idea[field] || '' }));
+            setEditingStates(prev => ({ ...prev, [key]: false }));
+          }
+        };
+
+        const updateTempValue = (ideaId, field, value) => {
+          const key = `${ideaId}-${field}`;
+          setTempValues(prev => ({ ...prev, [key]: value }));
+        };
+
+        return (
+          <div className="space-y-4">
+            {ideas.map((idea, index) => {
+              const titleKey = `${idea.id}-text`;
+              const descKey = `${idea.id}-description`;
+              const isEditingTitle = editingStates[titleKey];
+              const isEditingDesc = editingStates[descKey];
+
+              return (
+                <div key={idea.id} className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1">
+                      <div className="flex items-start gap-2 mb-2">
+                        {isEditingTitle ? (
+                          <input
+                            type="text"
+                            value={tempValues[titleKey] || ''}
+                            onChange={(e) => updateTempValue(idea.id, 'text', e.target.value)}
+                            onBlur={() => handleEditToggle(idea.id, 'text')}
+                            onKeyDown={(e) => handleKeyPress(e, idea.id, 'text')}
+                            className="flex-1 font-medium text-slate-800 bg-white border border-blue-500 rounded px-2 py-1 focus:outline-none"
+                            autoFocus
+                          />
+                        ) : (
+                          <p className="flex-1 font-medium text-slate-700">{idea.text}</p>
+                        )}
+                        <button
+                          onClick={() => handleEditToggle(idea.id, 'text')}
+                          className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                          title={isEditingTitle ? "Save title" : "Edit title"}
+                        >
+                          <EditIcon className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Description Section */}
+                      <div className="mb-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs text-slate-500">Description:</span>
+                          <button
+                            onClick={() => handleEditToggle(idea.id, 'description')}
+                            className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                            title={isEditingDesc ? "Save description" : "Edit description"}
+                          >
+                            <EditIcon className="w-3 h-3" />
+                          </button>
+                        </div>
+
+                        {isEditingDesc ? (
+                          <div className="space-y-2">
+                            <textarea
+                              value={tempValues[descKey] || ''}
+                              onChange={(e) => updateTempValue(idea.id, 'description', e.target.value)}
+                              onKeyDown={(e) => handleKeyPress(e, idea.id, 'description')}
+                              placeholder="Add description for this idea..."
+                              className="w-full text-sm p-2 rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500"
+                              rows={2}
+                              autoFocus
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleEditToggle(idea.id, 'description')}
+                                className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setTempValues(prev => ({ ...prev, [descKey]: idea.description || '' }));
+                                  setEditingStates(prev => ({ ...prev, [descKey]: false }));
+                                }}
+                                className="px-2 py-1 text-xs bg-slate-200 text-slate-700 rounded hover:bg-slate-300"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-sm text-slate-600 bg-white p-2 rounded border">
+                            {idea.description || <em className="text-slate-400">No description added yet.</em>}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => onReorderIdea(idea.id, 'up')}
+                          disabled={index === 0}
+                          title="Move Up"
+                          className="p-1 rounded-md text-slate-500 hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <ChevronUpIcon className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => onReorderIdea(idea.id, 'down')}
+                          disabled={index === ideas.length - 1}
+                          title="Move Down"
+                          className="p-1 rounded-md text-slate-500 hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <ChevronDownIcon className="w-5 h-5" />
+                        </button>
+                      </div>
+                      <div className="h-6 border-l border-slate-300"></div>
+                      <button
+                        onClick={() => onCopyFromVault(idea.id)}
+                        title="Copy to Brain Dump"
+                        className="p-1 text-blue-600 hover:text-blue-800"
+                      >
+                        <RestoreIcon className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => onDeleteIdea(idea.id)}
+                        title="Delete Idea Permanently"
+                        className="p-1 text-red-600 hover:text-red-800"
+                      >
+                        <TrashIcon className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      };
+
+      // Main Momentum Tracker App
+      const MomentumApp = ({ user }) => {
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        // User-specific data with isolated storage
+        const [brainDump, setBrainDump] = useUserLocalStorage('brainDump', []);
+        const [topThree, setTopThree] = useUserLocalStorage(`topThree_${todayStr}`, []);
+        const [completedHistory, setCompletedHistory] = useUserLocalStorage('completedHistory', []);
+        const [ideasVault, setIdeasVault] = useUserLocalStorage('ideasVault', []);
+
+        // User's personalized non-negotiables
+        const [nonNegotiableTasks, setNonNegotiableTasks] = useUserLocalStorage(
+          `nonNegotiable_${todayStr}`,
+          user.settings.nonNegotiables.map(task => ({
+            ...task,
+            isCompleted: false,
+            scheduledTime: '',
+            notes: '',
+            description: '',
+          }))
+        );
+
+        const [newTaskText, setNewTaskText] = useState('');
+        const [showCompleted, setShowCompleted] = useState(false);
+        const [showIdeasVault, setShowIdeasVault] = useState(false);
+        const [aiTask, setAiTask] = useState(null);
+        const [showSettings, setShowSettings] = useState(false);
+
+        const handleAddTask = (e) => {
+          e.preventDefault();
+          if (newTaskText.trim() === '') return;
+          const newTask = {
+            id: generateUUID(),
+            text: newTaskText,
+            isCompleted: false,
+            isIncomeGenerating: false,
+            notes: '',
+            description: '',
+            scheduledTime: '',
+            duration: 60,
+          };
+          setBrainDump(prev => [newTask, ...prev]);
+          setNewTaskText('');
+        };
+
+        const handleUpdateTask = useCallback((updatedTask) => {
+          if (updatedTask.isCompleted) {
+            const taskToArchive = { ...updatedTask, completedAt: new Date().toISOString() };
+            setCompletedHistory(prev => [taskToArchive, ...prev]);
+            setBrainDump(prev => prev.filter(t => t.id !== updatedTask.id));
+            setTopThree(prev => prev.filter(t => t.id !== updatedTask.id));
+          } else {
+            setBrainDump(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
+            setTopThree(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
+          }
+        }, [setBrainDump, setTopThree, setCompletedHistory]);
+
+        const handleUpdateNonNegotiableTask = useCallback((updatedTask) => {
+          setNonNegotiableTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
+        }, [setNonNegotiableTasks]);
+
+        const handleDeleteTask = (id, listSetter) => {
+          if (window.confirm("Are you sure you want to permanently delete this item?")) {
+            listSetter(prev => prev.filter(t => t.id !== id));
+          }
+        };
+
+        const promoteTask = (id) => {
+          if (topThree.length >= 3) {
+            alert("You can only have 3 top tasks. Demote one first.");
+            return;
+          }
+          const taskToPromote = brainDump.find(t => t.id === id);
+          if (taskToPromote) {
+            setTopThree(prev => [...prev, taskToPromote]);
+            setBrainDump(prev => prev.filter(t => t.id !== id));
+          }
+        };
+
+        const demoteTask = (id) => {
+          const taskToDemote = topThree.find(t => t.id === id);
+          if (taskToDemote) {
+            setBrainDump(prev => [taskToDemote, ...prev]);
+            setTopThree(prev => prev.filter(t => t.id !== id));
+          }
+        };
+
+        const restoreTask = (id) => {
+          const taskToRestore = completedHistory.find(t => t.id === id);
+          if (taskToRestore) {
+            const restoredTask = { ...taskToRestore, isCompleted: false, completedAt: undefined };
+            setBrainDump(prev => [restoredTask, ...prev]);
+            setCompletedHistory(prev => prev.filter(t => t.id !== id));
+          }
+        };
+
+        const handleSendToVault = (id) => {
+          const taskToVault = brainDump.find(t => t.id === id);
+          if (taskToVault) {
+            // Preserve the description when sending to vault
+            const vaultTask = {
+              id: taskToVault.id,
+              text: taskToVault.text,
+              description: taskToVault.description || ''
+            };
+            setIdeasVault(prev => [vaultTask, ...prev]);
+            setBrainDump(prev => prev.filter(t => t.id !== id));
+          }
+        };
+
+        const handleCopyFromVault = (id) => {
+          const taskToCopy = ideasVault.find(t => t.id === id);
+          if (taskToCopy) {
+            const newActionableTask = {
+              ...taskToCopy,
+              id: generateUUID(),
+              isCompleted: false,
+              isIncomeGenerating: false,
+              notes: '',
+              scheduledTime: '',
+              duration: 60,
+              // Preserve the description from the vault
+              description: taskToCopy.description || ''
+            };
+            setBrainDump(prev => [newActionableTask, ...prev]);
+            alert(`Copied "${taskToCopy.text}" to Brain Dump.`);
+          }
+        };
+
+        const handleReorderIdea = (id, direction) => {
+          setIdeasVault(prev => {
+            const index = prev.findIndex(t => t.id === id);
+            if (index === -1) return prev;
+
+            if (direction === 'up' && index > 0) {
+              const newVault = [...prev];
+              [newVault[index - 1], newVault[index]] = [newVault[index], newVault[index - 1]];
+              return newVault;
+            }
+            if (direction === 'down' && index < prev.length - 1) {
+              const newVault = [...prev];
+              [newVault[index + 1], newVault[index]] = [newVault[index], newVault[index + 1]];
+              return newVault;
+            }
+            return prev;
+          });
+        };
+
+        const startNewDay = () => {
+          if (window.confirm("Are you sure you want to end the day? Incomplete priorities will be returned to your Brain Dump.")) {
+            const incompleteTasks = topThree.filter(t => !t.isCompleted);
+            if (incompleteTasks.length > 0) {
+              const tasksToDemote = incompleteTasks.map(t => ({
+                ...t,
+                scheduledTime: '',
+                notes: '',
+                isIncomeGenerating: false
+              }));
+              setBrainDump(prev => [...tasksToDemote, ...prev]);
+            }
+            setTopThree([]);
+            setTimeout(() => window.location.reload(), 100);
+          }
+        };
+
+        const dayOfWeek = new Date().getDay();
+        const isWeekday = dayOfWeek > 0 && dayOfWeek < 6;
+
+        return (
+          <div className="min-h-screen bg-slate-100">
+            <header className="bg-white shadow-sm sticky top-0 z-20">
+              <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+                <div>
+                  <h1 className="text-2xl font-bold text-slate-800">Momentum Tracker</h1>
+                  <p className="text-sm text-slate-600">Welcome back, {user.name}!</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => exportUncompletedTasks(brainDump, topThree, nonNegotiableTasks, ideasVault)}
+                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-green-600 bg-green-50 rounded-md hover:bg-green-100"
+                    title="Export all uncompleted tasks from all sections to CSV"
+                  >
+                    <DownloadIcon className="w-4 h-4" />
+                    Export Uncompleted
+                  </button>
+                  <button
+                    onClick={() => exportAllData(completedHistory, brainDump, topThree, nonNegotiableTasks, ideasVault)}
+                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100"
+                    title="Export all your data to CSV"
+                  >
+                    <DownloadIcon className="w-4 h-4" />
+                    Export All Data
+                  </button>
+                  <button
+                    onClick={() => setShowSettings(true)}
+                    className="p-2 text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg"
+                    title="Settings"
+                  >
+                    <SettingsIcon className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={startNewDay}
+                    className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+                  >
+                    Start New Day
+                  </button>
+                </div>
+              </div>
+            </header>
+
+            <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+              {/* Top 3 Priorities */}
+              <section className="bg-white p-6 rounded-lg shadow-md mb-8">
+                <h2 className="text-2xl font-bold text-slate-800 mb-4">⭐ Top 3 Priorities</h2>
+                <div className="space-y-4">
+                  {topThree.length > 0 ? (
+                    topThree.map(task => (
+                      <TaskCard
+                        key={task.id}
+                        task={task}
+                        onUpdate={handleUpdateTask}
+                        onDelete={() => handleDeleteTask(task.id, setTopThree)}
+                        onDemote={() => demoteTask(task.id)}
+                        onLaunchAI={() => setAiTask(task)}
+                        isTopThree={true}
+                        user={user}
+                      />
+                    ))
+                  ) : (
+                    <p className="text-slate-500 text-center py-4">Promote tasks from your brain dump to focus on them.</p>
+                  )}
+                  {topThree.length < 3 && Array.from({ length: 3 - topThree.length }).map((_, i) => (
+                    <div key={i} className="p-4 rounded-lg border-2 border-dashed border-slate-300 text-center text-slate-400">
+                      Empty Priority Slot
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              {/* User's Personal Non-Negotiables */}
+              {isWeekday && user.settings.nonNegotiables.length > 0 && (
+                <section className="bg-white p-6 rounded-lg shadow-md mb-8">
+                  <h2 className="text-2xl font-bold text-slate-800 mb-4">🗓️ Your Daily Non-Negotiables</h2>
+                  <div className="space-y-3">
+                    {nonNegotiableTasks.map(task => (
+                      <div key={task.id} className="p-3 rounded-lg flex items-center gap-4 bg-slate-50 border border-slate-200">
+                        <input
+                          type="checkbox"
+                          checked={task.isCompleted}
+                          onChange={(e) => handleUpdateNonNegotiableTask({ ...task, isCompleted: e.target.checked })}
+                          className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 shrink-0"
+                        />
+                        <div className="flex-1">
+                          <p className="font-medium text-slate-800">{task.text}</p>
+                          <p className="text-sm text-slate-500">{task.duration} minutes</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <TimePicker12Hour
+                            value={task.scheduledTime || ''}
+                            onChange={(time) => handleUpdateNonNegotiableTask({ ...task, scheduledTime: time })}
+                            className="flex-1"
+                          />
+                          <button
+                            onClick={() => {
+                              const openForBrowsing = !task.scheduledTime;
+                              const calendarUrl = getCalendarUrl(task, user.settings.calendarProvider, openForBrowsing);
+                              if (calendarUrl) {
+                                if (user.settings.calendarProvider === 'apple') {
+                                  const link = document.createElement('a');
+                                  link.href = calendarUrl;
+                                  link.download = `${task.text.replace(/[^a-z0-9]/gi, '_')}.ics`;
+                                  link.click();
+                                } else {
+                                  window.open(calendarUrl, '_blank');
+                                }
+                              }
+                            }}
+                            title={task.scheduledTime ? "Add to Calendar" : "Open Calendar to Browse"}
+                            className="p-2 rounded-md bg-white border border-slate-300 text-slate-500 hover:bg-slate-50"
+                          >
+                            <CalendarIcon className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* Daily Accountability Reminder */}
+              <div className="bg-slate-100 border-l-4 border-blue-400 p-4 rounded-lg shadow-sm mb-6">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-blue-500 mt-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-semibold text-blue-800">Daily Accountability Reminder</h3>
+                    <div className="mt-2 text-sm text-blue-700">
+                      <p className="mb-2">Make sure to complete these essential activities today:</p>
+                      <ul className="list-disc list-inside space-y-1 ml-2">
+                        <li><strong>Make at least 1 Appointment</strong> - Schedule a meeting, call, or connection</li>
+                        <li><strong>Speak to at least 1 person</strong> - Have a meaningful conversation or interaction</li>
+                        <li><strong>Teach Someone</strong> - Share knowledge, mentor, or help someone learn</li>
+                        <li><strong>Make an offer</strong> - Present a proposal, service, or opportunity to someone</li>
+                      </ul>
+                      <p className="mt-2 text-xs italic">💡 These activities drive momentum and growth in your business and personal life</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Brain Dump */}
+              <section className="bg-white p-6 rounded-lg shadow-md mb-8">
+                <h2 className="text-2xl font-bold text-slate-800 mb-4">🧠 Brain Dump</h2>
+                <form onSubmit={handleAddTask} className="flex gap-2 mb-4">
+                  <input
+                    type="text"
+                    value={newTaskText}
+                    onChange={(e) => setNewTaskText(e.target.value)}
+                    placeholder="Add a new task..."
+                    className="flex-grow block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
+                  />
+                  <button type="submit" className="bg-blue-600 text-white p-2 rounded-md hover:bg-blue-700 flex items-center justify-center">
+                    <PlusIcon className="w-5 h-5" />
+                  </button>
+                </form>
+                <div className="space-y-3 max-h-[45rem] overflow-y-auto pr-2">
+                  {brainDump.length > 0 ? (
+                    brainDump.map(task => (
+                      <TaskCard
+                        key={task.id}
+                        task={task}
+                        onUpdate={handleUpdateTask}
+                        onDelete={() => handleDeleteTask(task.id, setBrainDump)}
+                        onPromote={() => promoteTask(task.id)}
+                        onSendToVault={() => handleSendToVault(task.id)}
+                        onLaunchAI={() => setAiTask(task)}
+                        isTopThree={false}
+                        user={user}
+                      />
+                    ))
+                  ) : (
+                    <p className="text-slate-500 text-center py-4">Brain dump all your tasks for the day here.</p>
+                  )}
+                </div>
+              </section>
+
+              {/* Ideas Vault */}
+              <div className="bg-white p-6 rounded-lg shadow-md mb-8">
+                <button
+                  onClick={() => setShowIdeasVault(!showIdeasVault)}
+                  className="w-full flex justify-between items-center text-left text-xl font-bold text-slate-800 focus:outline-none"
+                >
+                  <span>💡 Ideas Vault ({ideasVault.length})</span>
+                  <ChevronDownIcon className={`w-6 h-6 transform transition-transform ${showIdeasVault ? 'rotate-180' : ''}`} />
+                </button>
+                {showIdeasVault && (
+                  <div className="mt-4 pt-4 border-t">
+                    {ideasVault.length > 0 ? (
+                      <IdeasVaultList
+                        ideas={ideasVault}
+                        onUpdateIdea={(updatedIdea) => {
+                          setIdeasVault(prev => prev.map(idea => idea.id === updatedIdea.id ? updatedIdea : idea));
+                        }}
+                        onReorderIdea={handleReorderIdea}
+                        onCopyFromVault={handleCopyFromVault}
+                        onDeleteIdea={(id) => handleDeleteTask(id, setIdeasVault)}
+                      />
+                    ) : (
+                      <p className="text-slate-500 text-center py-4">Send ideas here to review later.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Completed Tasks */}
+              <div className="bg-white p-6 rounded-lg shadow-md mb-8">
+                <div className="flex justify-between items-center">
+                  <button
+                    onClick={() => setShowCompleted(!showCompleted)}
+                    className="flex items-center text-left text-xl font-bold text-slate-800 focus:outline-none"
+                  >
+                    <span>✅ Completed Task History ({completedHistory.length})</span>
+                    <ChevronDownIcon className={`w-6 h-6 ml-2 transform transition-transform ${showCompleted ? 'rotate-180' : ''}`} />
+                  </button>
+                  {completedHistory.length > 0 && (
+                    <button
+                      onClick={() => exportCompletedTasks(completedHistory)}
+                      className="flex items-center gap-2 px-3 py-1 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      title="Export completed tasks to CSV"
+                    >
+                      <DownloadIcon className="w-4 h-4" />
+                      Export CSV
+                    </button>
+                  )}
+                </div>
+                {showCompleted && completedHistory.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    {completedHistory.slice(0, 10).map(task => (
+                      <div key={task.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                        <div>
+                          <p className="font-medium text-slate-900">{task.text}</p>
+                          <p className="text-sm text-slate-500">{new Date(task.completedAt).toLocaleString()}</p>
+                          {task.description && (
+                            <p className="text-sm text-slate-600 mt-1">{task.description}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => restoreTask(task.id)}
+                            title="Restore Task"
+                            className="text-blue-600 hover:text-blue-800"
+                          >
+                            <RestoreIcon className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteTask(task.id, setCompletedHistory)}
+                            title="Delete Permanently"
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {showCompleted && completedHistory.length === 0 && (
+                  <p className="mt-4 text-slate-500 text-center py-4">No completed tasks yet. Get to work!</p>
+                )}
+              </div>
+
+            </main>
+
+            {/* AI Modal */}
+            {aiTask && <AIModal task={aiTask} user={user} onClose={() => setAiTask(null)} />}
+
+            {/* Settings Modal */}
+            {showSettings && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
+                <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+                  <h2 className="text-lg font-semibold text-slate-800 mb-4">Settings</h2>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700">Name</label>
+                      <p className="text-slate-900">{user.name}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700">Calendar</label>
+                      <p className="text-slate-900 capitalize">{user.settings.calendarProvider}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700">AI Assistant</label>
+                      <p className="text-slate-900">{user.settings.aiProvider === 'none' ? 'Disabled' : user.settings.aiProvider}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700">Non-Negotiables</label>
+                      <p className="text-slate-900">{user.settings.nonNegotiables.length} daily tasks</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3 mt-6">
+                    <button
+                      onClick={() => {
+                        if (confirm('Are you sure you want to sign out?')) {
+                          localStorage.removeItem('momentum-current-user');
+                          window.location.reload();
+                        }
+                      }}
+                      className="flex-1 px-4 py-2 text-red-600 border border-red-300 rounded-lg hover:bg-red-50"
+                    >
+                      Sign Out
+                    </button>
+                    <button
+                      onClick={() => setShowSettings(false)}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      };
+
+      // Root App Component
+      const App = () => {
+        const [currentUser, setCurrentUser] = useState(UserManager.getCurrentUser());
+
+        if (!currentUser) {
+          return <SetupWizard onComplete={setCurrentUser} />;
+        }
+
+        return <MomentumApp user={currentUser} />;
+      };
+
+      // Render the app
+      const rootElement = document.getElementById('root');
+      if (rootElement) {
+        const root = ReactDOM.createRoot(rootElement);
+        root.render(<App />);
+      } else {
+        console.error('Root element not found');
+      }
+    </script>
+  </body>
+</html>
