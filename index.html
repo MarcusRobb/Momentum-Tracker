@@ -1230,12 +1230,25 @@
           return `${hour24.toString().padStart(2, '0')}:${minute}`;
         };
 
-        const timeData = convertTo12Hour(value);
+        // Use state to track the current 12-hour values
+        const [timeData, setTimeData] = useState(() => convertTo12Hour(value));
+
+        // Update local state when external value changes
+        useEffect(() => {
+          setTimeData(convertTo12Hour(value));
+        }, [value]);
 
         const handleTimeChange = (field, newValue) => {
           const updatedTime = { ...timeData, [field]: newValue };
-          const time24 = convertTo24Hour(updatedTime.hour, updatedTime.minute, updatedTime.period);
-          onChange(time24);
+          setTimeData(updatedTime);
+
+          // Only call onChange if we have both hour and minute
+          if (updatedTime.hour && updatedTime.minute) {
+            const time24 = convertTo24Hour(updatedTime.hour, updatedTime.minute, updatedTime.period);
+            if (time24) {
+              onChange(time24);
+            }
+          }
         };
 
         return (
