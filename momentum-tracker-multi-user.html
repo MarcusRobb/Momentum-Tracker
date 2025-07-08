@@ -537,8 +537,36 @@
       );
 
       // Calendar Integration Helper
-      const getCalendarUrl = (task, calendarProvider) => {
-        if (!task.scheduledTime) return null;
+      const getCalendarUrl = (task, calendarProvider, openForBrowsing = false) => {
+        // If opening for browsing without time, create basic event
+        if (!task.scheduledTime || openForBrowsing) {
+          switch (calendarProvider) {
+            case 'google':
+              const googleUrl = new URL('https://www.google.com/calendar/render');
+              googleUrl.searchParams.append('action', 'TEMPLATE');
+              googleUrl.searchParams.append('text', task.text);
+              googleUrl.searchParams.append('details', `${task.notes || `Completing task: ${task.text}`}\n\n⏰ Set your preferred time in the calendar`);
+              return googleUrl.toString();
+
+            case 'outlook':
+              const outlookUrl = new URL('https://outlook.live.com/calendar/0/deeplink/compose');
+              outlookUrl.searchParams.append('subject', task.text);
+              outlookUrl.searchParams.append('body', `${task.notes || `Completing task: ${task.text}`}\n\n⏰ Set your preferred time in the calendar`);
+              return outlookUrl.toString();
+
+            case 'apple':
+              return `data:text/calendar;charset=utf8,BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+SUMMARY:${task.text}
+DESCRIPTION:${task.notes || `Completing task: ${task.text}`}\\n\\n⏰ Set your preferred time in the calendar
+END:VEVENT
+END:VCALENDAR`;
+
+            default:
+              return null;
+          }
+        }
 
         const [hours, minutes] = task.scheduledTime.split(':').map(Number);
         const startTime = new Date();
@@ -831,6 +859,81 @@ Please provide helpful, actionable advice related to this specific task. Be conc
         downloadCSV(csvContent, filename);
       };
 
+      // 12-Hour Time Picker Component
+      const TimePicker12Hour = ({ value, onChange, className }) => {
+        // Convert 24-hour time to 12-hour format
+        const convertTo12Hour = (time24) => {
+          if (!time24) return { hour: '', minute: '', period: 'AM' };
+
+          const [hours, minutes] = time24.split(':');
+          const hour24 = parseInt(hours);
+          const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
+          const period = hour24 >= 12 ? 'PM' : 'AM';
+
+          return {
+            hour: hour12.toString(),
+            minute: minutes,
+            period: period
+          };
+        };
+
+        // Convert 12-hour time to 24-hour format
+        const convertTo24Hour = (hour, minute, period) => {
+          if (!hour || !minute) return '';
+
+          let hour24 = parseInt(hour);
+          if (period === 'AM' && hour24 === 12) {
+            hour24 = 0;
+          } else if (period === 'PM' && hour24 !== 12) {
+            hour24 += 12;
+          }
+
+          return `${hour24.toString().padStart(2, '0')}:${minute}`;
+        };
+
+        const timeData = convertTo12Hour(value);
+
+        const handleTimeChange = (field, newValue) => {
+          const updatedTime = { ...timeData, [field]: newValue };
+          const time24 = convertTo24Hour(updatedTime.hour, updatedTime.minute, updatedTime.period);
+          onChange(time24);
+        };
+
+        return (
+          <div className={`flex items-center gap-1 ${className}`}>
+            <select
+              value={timeData.hour}
+              onChange={(e) => handleTimeChange('hour', e.target.value)}
+              className="block w-16 text-sm p-2 rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Hr</option>
+              {Array.from({ length: 12 }, (_, i) => i + 1).map(hour => (
+                <option key={hour} value={hour}>{hour}</option>
+              ))}
+            </select>
+            <span className="text-slate-500">:</span>
+            <select
+              value={timeData.minute}
+              onChange={(e) => handleTimeChange('minute', e.target.value)}
+              className="block w-16 text-sm p-2 rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Min</option>
+              {Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0')).map(minute => (
+                <option key={minute} value={minute}>{minute}</option>
+              ))}
+            </select>
+            <select
+              value={timeData.period}
+              onChange={(e) => handleTimeChange('period', e.target.value)}
+              className="block w-16 text-sm p-2 rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="AM">AM</option>
+              <option value="PM">PM</option>
+            </select>
+          </div>
+        );
+      };
+
       // AI Modal Component
       const AIModal = ({ task, user, onClose }) => {
         const [prompt, setPrompt] = useState('');
@@ -969,12 +1072,10 @@ Please provide helpful, actionable advice related to this specific task. Be conc
         };
 
         const handleAddToCalendar = () => {
-          if (!task.scheduledTime) {
-            alert("Please set a valid time for the task first.");
-            return;
-          }
+          // Always open calendar - either for browsing or with scheduled time
+          const openForBrowsing = !task.scheduledTime;
+          const calendarUrl = getCalendarUrl(task, user.settings.calendarProvider, openForBrowsing);
 
-          const calendarUrl = getCalendarUrl(task, user.settings.calendarProvider);
           if (calendarUrl) {
             if (user.settings.calendarProvider === 'apple') {
               // For Apple Calendar, download the .ics file
@@ -1056,11 +1157,10 @@ Please provide helpful, actionable advice related to this specific task. Be conc
               {isTopThree && (
                 <div className="mt-3 space-y-3">
                   <div className="grid grid-cols-2 gap-2">
-                    <input
-                      type="time"
+                    <TimePicker12Hour
                       value={task.scheduledTime || ''}
-                      onChange={(e) => handleToggle('scheduledTime', e.target.value)}
-                      className="block w-full text-sm p-2 rounded-md border-slate-300 focus:ring-blue-500"
+                      onChange={(time) => handleToggle('scheduledTime', time)}
+                      className="w-full"
                     />
                     <select
                       value={task.duration || 60}
@@ -1080,7 +1180,10 @@ Please provide helpful, actionable advice related to this specific task. Be conc
                     className="w-full flex items-center justify-center gap-2 p-2 rounded-md bg-white border border-slate-300 text-slate-600 hover:bg-slate-50"
                   >
                     <CalendarIcon className="w-5 h-5" />
-                    Add to {user.settings.calendarProvider === 'google' ? 'Google' : user.settings.calendarProvider === 'outlook' ? 'Outlook' : user.settings.calendarProvider === 'apple' ? 'Apple' : ''} Calendar
+                    {task.scheduledTime ?
+                      `Add to ${user.settings.calendarProvider === 'google' ? 'Google' : user.settings.calendarProvider === 'outlook' ? 'Outlook' : user.settings.calendarProvider === 'apple' ? 'Apple' : ''} Calendar` :
+                      `Open ${user.settings.calendarProvider === 'google' ? 'Google' : user.settings.calendarProvider === 'outlook' ? 'Outlook' : user.settings.calendarProvider === 'apple' ? 'Apple' : ''} Calendar`
+                    }
                   </button>
                   <textarea
                     placeholder="Action points & notes..."
@@ -1580,15 +1683,15 @@ Please provide helpful, actionable advice related to this specific task. Be conc
                           <p className="text-sm text-slate-500">{task.duration} minutes</p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <input
-                            type="time"
+                          <TimePicker12Hour
                             value={task.scheduledTime || ''}
-                            onChange={(e) => handleUpdateNonNegotiableTask({ ...task, scheduledTime: e.target.value })}
-                            className="block w-32 text-sm p-2 rounded-md border-slate-300 focus:ring-blue-500"
+                            onChange={(time) => handleUpdateNonNegotiableTask({ ...task, scheduledTime: time })}
+                            className="flex-1"
                           />
                           <button
                             onClick={() => {
-                              const calendarUrl = getCalendarUrl(task, user.settings.calendarProvider);
+                              const openForBrowsing = !task.scheduledTime;
+                              const calendarUrl = getCalendarUrl(task, user.settings.calendarProvider, openForBrowsing);
                               if (calendarUrl) {
                                 if (user.settings.calendarProvider === 'apple') {
                                   const link = document.createElement('a');
@@ -1600,8 +1703,8 @@ Please provide helpful, actionable advice related to this specific task. Be conc
                                 }
                               }
                             }}
-                            disabled={!task.scheduledTime}
-                            className="p-2 rounded-md bg-white border border-slate-300 text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+                            title={task.scheduledTime ? "Add to Calendar" : "Open Calendar to Browse"}
+                            className="p-2 rounded-md bg-white border border-slate-300 text-slate-500 hover:bg-slate-50"
                           >
                             <CalendarIcon className="w-5 h-5" />
                           </button>
