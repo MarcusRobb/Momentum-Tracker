@@ -1418,9 +1418,10 @@ Please provide helpful, actionable advice related to this specific task. Be conc
                       <button
                         onClick={() => onCopyFromVault(idea.id)}
                         title="Copy to Brain Dump"
-                        className="p-1 text-blue-600 hover:text-blue-800"
+                        className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors"
                       >
-                        <RestoreIcon className="w-5 h-5" />
+                        <RestoreIcon className="w-4 h-4" />
+                        <span>To Brain Dump</span>
                       </button>
                       <button
                         onClick={() => onDeleteIdea(idea.id)}
@@ -1563,7 +1564,7 @@ Please provide helpful, actionable advice related to this specific task. Be conc
               description: taskToCopy.description || ''
             };
             setBrainDump(prev => [newActionableTask, ...prev]);
-            alert(`Copied "${taskToCopy.text}" to Brain Dump.`);
+            alert(`✅ Successfully copied "${taskToCopy.text}" from Ideas Vault to Brain Dump!\n\nYou can now promote it to your Top 3 priorities and schedule it.`);
           }
         };
 
@@ -1806,7 +1807,10 @@ Please provide helpful, actionable advice related to this specific task. Be conc
                   onClick={() => setShowIdeasVault(!showIdeasVault)}
                   className="w-full flex justify-between items-center text-left text-xl font-bold text-slate-800 focus:outline-none"
                 >
-                  <span>💡 Ideas Vault ({ideasVault.length})</span>
+                  <div>
+                    <span>💡 Ideas Vault ({ideasVault.length})</span>
+                    <p className="text-sm font-normal text-slate-500 mt-1">Store ideas for later • Click "To Brain Dump" to make them actionable</p>
+                  </div>
                   <ChevronDownIcon className={`w-6 h-6 transform transition-transform ${showIdeasVault ? 'rotate-180' : ''}`} />
                 </button>
                 {showIdeasVault && (
