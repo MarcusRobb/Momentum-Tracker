@@ -1,0 +1,9 @@
+{
+  "private": true,
+  "dependencies": {
+    "@google/genai": "^1.8.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.24"
+  }
+}
