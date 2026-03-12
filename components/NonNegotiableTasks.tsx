@@ -1,6 +1,6 @@
 import React from 'react';
 import { Task } from '../types';
-import { CalendarIcon } from './Icons';
+import { CalendarIcon, DollarSignIcon } from './Icons'; // Added DollarSignIcon here
 
 interface NonNegotiableTaskItemProps {
   task: Task;
@@ -20,52 +20,54 @@ const NonNegotiableTaskItem: React.FC<NonNegotiableTaskItemProps> = ({ task, onU
     }
 
     const [hours, minutes] = task.scheduledTime.split(':').map(Number);
-    
     const startTime = new Date();
     startTime.setHours(hours, minutes, 0, 0);
 
     const durationMinutes = task.duration || 60;
     const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000);
 
-    const toGoogleFormat = (date: Date) => {
-        return date.toISOString().replace(/-|:|\.\d{3}/g, '');
-    };
+    const toGoogleFormat = (date: Date) => date.toISOString().replace(/-|:|\.\d{3}/g, '');
 
     const calendarUrl = new URL('https://www.google.com/calendar/render');
     calendarUrl.searchParams.append('action', 'TEMPLATE');
     calendarUrl.searchParams.append('text', task.text);
     calendarUrl.searchParams.append('dates', `${toGoogleFormat(startTime)}/${toGoogleFormat(endTime)}`);
-    calendarUrl.searchParams.append('details', `Completing daily non-negotiable task: ${task.text}`);
+    calendarUrl.searchParams.append('details', `Daily Habit: ${task.text}`);
     
     window.open(calendarUrl.toString() + '&colorId=11', '_blank', 'noopener,noreferrer');
   };
 
   return (
-    <div className="p-3 rounded-lg flex items-center gap-4 bg-slate-50 border border-slate-200">
+    <div className={`p-4 rounded-xl flex items-center gap-4 border transition-all ${
+        task.isCompleted ? 'bg-slate-50 border-slate-100 opacity-60' : 'bg-white border-slate-200 shadow-sm'
+    }`}>
       <input
         type="checkbox"
         checked={task.isCompleted}
         onChange={(e) => handleToggle('isCompleted', e.target.checked)}
         className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 shrink-0"
-        aria-label={`Mark task '${task.text}' as complete`}
       />
       <div className="flex-1">
-        <p className="font-medium text-slate-800">{task.text}</p>
+        <p className={`font-bold ${task.isCompleted ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
+            {task.text}
+        </p>
+        {task.isIncomeGenerating && (
+            <span className="text-[10px] font-bold text-yellow-600 uppercase tracking-widest flex items-center gap-1 mt-0.5">
+                <DollarSignIcon className="w-3 h-3" /> Income Activity
+            </span>
+        )}
       </div>
       <div className="flex items-center gap-2">
         <input
           type="time"
           value={task.scheduledTime}
           onChange={(e) => handleToggle('scheduledTime', e.target.value)}
-          className="block w-32 text-sm p-2 rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500"
-          aria-label="Scheduled time"
+          className="block w-28 text-sm p-2 rounded-lg border-slate-200 focus:ring-blue-500 focus:border-blue-500 font-medium"
         />
         <button
           onClick={handleAddToCalendar}
-          title="Add to Google Calendar"
-          className="p-2 rounded-md bg-white border border-slate-300 text-slate-500 hover:bg-slate-50 hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="p-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:text-blue-600 transition-colors disabled:opacity-30"
           disabled={!task.scheduledTime}
-          aria-label="Add to Google Calendar"
         >
           <CalendarIcon className="w-5 h-5" />
         </button>
@@ -81,11 +83,12 @@ interface NonNegotiableTasksProps {
 
 const NonNegotiableTasks: React.FC<NonNegotiableTasksProps> = ({ tasks, onUpdateTask }) => {
   return (
-    <div className="space-y-3">
-      {tasks.map(task => (
-        <NonNegotiableTaskItem key={task.id} task={task} onUpdate={onUpdateTask} />
-      ))}
-    </div>
+    <section className="space-y-3">
+        <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">🗓️ Daily Non-Negotiables</h2>
+        {tasks.map(task => (
+            <NonNegotiableTaskItem key={task.id} task={task} onUpdate={onUpdateTask} />
+        ))}
+    </section>
   );
 };
 

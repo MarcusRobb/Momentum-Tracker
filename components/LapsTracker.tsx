@@ -6,21 +6,38 @@ interface LapsTrackerProps {
   setLapsHistory: React.Dispatch<React.SetStateAction<LapsData[]>>;
 }
 
-const StatCard: React.FC<{ title: string; value: number | string; }> = ({ title, value }) => (
-    <div className="bg-slate-100 rounded-lg p-4 text-center">
-        <p className="text-sm text-slate-500 font-medium">{title}</p>
-        <p className="text-3xl font-bold text-slate-800">{value}</p>
-    </div>
-);
+// StatCard with color-coding based on Build 2 targets
+const StatCard: React.FC<{ title: string; value: number; target?: number }> = ({ title, value, target }) => {
+    const isAtTarget = target ? value >= target : false;
+    const hasProgress = value > 0 && !isAtTarget;
+
+    return (
+        <div className={`rounded-lg p-4 text-center transition-all border ${
+            isAtTarget ? 'bg-green-100 border-green-200' : 
+            hasProgress ? 'bg-amber-100 border-amber-200' : 
+            'bg-slate-100 border-slate-200'
+        }`}>
+            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">{title}</p>
+            <p className="text-3xl font-black text-slate-800">{value}</p>
+            {target && <p className="text-[10px] text-slate-400 mt-1 font-medium">Target: {target}</p>}
+        </div>
+    );
+};
 
 const LapsTracker: React.FC<LapsTrackerProps> = ({ lapsHistory, setLapsHistory }) => {
     const todayStr = new Date().toISOString().split('T')[0];
     
+    // Initialize with all Build 2 Activity fields
     const todayData = useMemo(() => {
-        return lapsHistory.find(d => d.date === todayStr) || { date: todayStr, leads: 0, appointments: 0, presentations: 0, sales: 0 };
+        return lapsHistory.find(d => d.date === todayStr) || { 
+            date: todayStr, 
+            leads: 0, appointments: 0, presentations: 0, sales: 0,
+            outreach_emails: 0, voice_drops: 0, li_comments: 0, li_posts: 0, li_dms: 0,
+            mrr_current: 0
+        };
     }, [lapsHistory, todayStr]);
 
-    const [currentLaps, setCurrentLaps] = useState<Omit<LapsData, 'date'>>(todayData);
+    const [currentLaps, setCurrentLaps] = useState<LapsData>(todayData);
     const [showHistory, setShowHistory] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
 
@@ -40,39 +57,17 @@ const LapsTracker: React.FC<LapsTrackerProps> = ({ lapsHistory, setLapsHistory }
             const existingIndex = prevHistory.findIndex(d => d.date === todayStr);
             if (existingIndex > -1) {
                 const newHistory = [...prevHistory];
-                newHistory[existingIndex] = { ...currentLaps, date: todayStr };
+                newHistory[existingIndex] = currentLaps;
                 return newHistory;
             } else {
-                return [...prevHistory, { ...currentLaps, date: todayStr }];
+                return [...prevHistory, currentLaps];
             }
         });
+        
+        // This updated currentLaps object now includes all activity + mrr fields
         setTimeout(() => setSaveStatus('saved'), 300);
         setTimeout(() => setSaveStatus('idle'), 2500);
     };
-
-    const getTotals = (startDate: Date, endDate: Date) => {
-        const startStr = startDate.toISOString().split('T')[0];
-        const endStr = endDate.toISOString().split('T')[0];
-
-        return lapsHistory
-            .filter(d => d.date >= startStr && d.date <= endStr)
-            .reduce((acc, curr) => ({
-                leads: acc.leads + curr.leads,
-                appointments: acc.appointments + curr.appointments,
-                presentations: acc.presentations + curr.presentations,
-                sales: acc.sales + curr.sales,
-            }), { leads: 0, appointments: 0, presentations: 0, sales: 0 });
-    };
-
-    const today = new Date();
-    const dayOfWeek = today.getDay();
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1)); // Adjust for Sunday
-
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-
-    const weeklyTotals = useMemo(() => getTotals(startOfWeek, today), [lapsHistory, startOfWeek, today]);
-    const monthlyTotals = useMemo(() => getTotals(startOfMonth, today), [lapsHistory, startOfMonth, today]);
 
     const sortedHistory = useMemo(() => {
         return [...lapsHistory]
@@ -81,106 +76,138 @@ const LapsTracker: React.FC<LapsTrackerProps> = ({ lapsHistory, setLapsHistory }
     }, [lapsHistory, todayStr]);
 
     return (
-        <div className="bg-white p-6 rounded-lg shadow-md">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold text-slate-800">LAPS Tracker</h2>
+        <div className="bg-white p-6 rounded-xl shadow-md border border-slate-200">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-slate-800">LAPS & Activity Tracker</h2>
               {sortedHistory.length > 0 && (
                 <button
                     onClick={() => setShowHistory(!showHistory)}
-                    className="px-3 py-1 text-sm font-medium text-white bg-slate-600 rounded-md hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500"
+                    className="px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
                 >
-                    {showHistory ? 'Hide' : 'Show'} History
+                    {showHistory ? 'Hide' : 'View'} History
                 </button>
               )}
             </div>
             
-            <div className="mb-6">
-                <h3 className="text-lg font-semibold text-slate-700 mb-3">Today's Laps ({todayStr})</h3>
+            {/* 1. Activity Layer (ABOVE LAPS) */}
+            <div className="mb-8">
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Daily Outreach Activity</h3>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+                    <StatCard title="Outreach Emails" value={currentLaps.outreach_emails} target={5} />
+                    <StatCard title="Voice Drops" value={currentLaps.voice_drops} />
+                    <StatCard title="LI Comments" value={currentLaps.li_comments} target={2} />
+                    <StatCard title="LI Posts" value={currentLaps.li_posts} />
+                    <StatCard title="LI DMs" value={currentLaps.li_dms} target={2} />
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                    {['outreach_emails', 'voice_drops', 'li_comments', 'li_posts', 'li_dms'].map(field => (
+                        <input
+                            key={field}
+                            type="number"
+                            name={field}
+                            value={currentLaps[field as keyof LapsData]}
+                            onChange={handleInputChange}
+                            placeholder="0"
+                            className="text-center p-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-blue-500 sm:text-sm font-bold"
+                        />
+                    ))}
+                </div>
+            </div>
+
+            <hr className="mb-8 border-slate-100" />
+
+            {/* 2. LAPS Layer */}
+            <div className="mb-8">
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Sales Pipeline</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                     {['leads', 'appointments', 'presentations', 'sales'].map(key => (
                         <div key={key}>
-                            <label htmlFor={key} className="block text-sm font-medium text-slate-600 capitalize">{key}</label>
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase ml-1 mb-1">{key}</label>
                             <input
                                 type="number"
                                 name={key}
-                                id={key}
-                                value={currentLaps[key as keyof typeof currentLaps]}
+                                value={currentLaps[key as keyof LapsData]}
                                 onChange={handleInputChange}
-                                className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
-                                min="0"
+                                className="block w-full rounded-lg border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-lg font-bold p-3"
                             />
                         </div>
                     ))}
                 </div>
-                 <div className="flex items-center gap-4 h-9">
-                    <button
-                        onClick={handleSave}
-                        className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-400"
-                        disabled={saveStatus === 'saving'}
-                    >
-                        {saveStatus === 'saving' ? 'Saving...' : "Update Today's LAPS"}
-                    </button>
-                    {saveStatus === 'saved' && (
-                        <p className="text-sm text-green-600 font-medium">Saved successfully!</p>
-                    )}
+            </div>
+
+            {/* 3. MRR Row (BELOW LAPS) */}
+            <div className="mb-8 p-5 bg-slate-900 rounded-xl text-white">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+                    <div className="flex-1 w-full">
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2">Current MRR</p>
+                        <div className="flex items-center gap-3">
+                            <span className="text-3xl font-light text-slate-500">$</span>
+                            <input
+                                type="number"
+                                name="mrr_current"
+                                value={currentLaps.mrr_current}
+                                onChange={handleInputChange}
+                                className="bg-transparent text-3xl font-bold border-b border-slate-700 w-full focus:outline-none focus:border-blue-500 pb-1"
+                            />
+                        </div>
+                    </div>
+                    <div className="flex gap-8 text-right w-full md:w-auto">
+                        <div>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">March Target</p>
+                            <p className="text-2xl font-black text-green-400">$1,000</p>
+                        </div>
+                        <div>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Gap</p>
+                            <p className="text-2xl font-black text-blue-400">
+                                ${Math.max(0, 1000 - currentLaps.mrr_current).toLocaleString()}
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
+            <div className="flex items-center gap-4">
+                <button
+                    onClick={handleSave}
+                    className="flex-1 py-4 text-sm font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
+                    disabled={saveStatus === 'saving'}
+                >
+                    {saveStatus === 'saving' ? 'Saving Stats...' : "Update Daily Performance Data"}
+                </button>
+                {saveStatus === 'saved' && (
+                    <p className="text-sm text-green-600 font-bold animate-pulse">✓ Saved</p>
+                )}
+            </div>
+
             {showHistory && (
-                <div className="mb-8">
-                    <h3 className="text-lg font-semibold text-slate-700 mb-3">Performance History</h3>
-                    <div className="overflow-x-auto rounded-lg border border-slate-200">
-                        <table className="min-w-full divide-y divide-slate-200">
+                <div className="mt-8 pt-8 border-t border-slate-100">
+                    <h3 className="text-lg font-bold text-slate-700 mb-4">Historical Performance</h3>
+                    <div className="overflow-x-auto rounded-xl border border-slate-100">
+                        <table className="min-w-full divide-y divide-slate-100">
                             <thead className="bg-slate-50">
-                                <tr>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Date</th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Leads</th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Appointments</th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Presentations</th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Sales</th>
+                                <tr className="text-[10px] font-bold text-slate-400 uppercase">
+                                    <th className="px-6 py-3 text-left">Date</th>
+                                    <th className="px-6 py-3 text-left">Emails</th>
+                                    <th className="px-6 py-3 text-left">LI DMs</th>
+                                    <th className="px-6 py-3 text-left">Sales</th>
+                                    <th className="px-6 py-3 text-left">MRR</th>
                                 </tr>
                             </thead>
-                            <tbody className="bg-white divide-y divide-slate-200">
+                            <tbody className="bg-white divide-y divide-slate-50">
                                 {sortedHistory.map(item => (
-                                    <tr key={item.date}>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{item.date}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{item.leads}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{item.appointments}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{item.presentations}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{item.sales}</td>
+                                    <tr key={item.date} className="text-sm text-slate-600">
+                                        <td className="px-6 py-4 font-bold text-slate-900">{item.date}</td>
+                                        <td className="px-6 py-4">{item.outreach_emails || 0}</td>
+                                        <td className="px-6 py-4">{item.li_dms || 0}</td>
+                                        <td className="px-6 py-4 font-bold text-green-600">{item.sales}</td>
+                                        <td className="px-6 py-4 font-bold text-blue-600">${item.mrr_current?.toLocaleString() || 0}</td>
                                     </tr>
                                 ))}
-                                {sortedHistory.length === 0 && (
-                                     <tr>
-                                        <td colSpan={5} className="px-6 py-4 text-center text-sm text-slate-500">No past history yet. Your recorded LAPS will appear here on subsequent days.</td>
-                                    </tr>
-                                )}
                             </tbody>
                         </table>
                     </div>
                 </div>
             )}
-
-            <div className="space-y-6">
-                <div>
-                    <h3 className="text-lg font-semibold text-slate-700 mb-3">This Week's Totals</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <StatCard title="Leads" value={weeklyTotals.leads} />
-                        <StatCard title="Appointments" value={weeklyTotals.appointments} />
-                        <StatCard title="Presentations" value={weeklyTotals.presentations} />
-                        <StatCard title="Sales" value={weeklyTotals.sales} />
-                    </div>
-                </div>
-                 <div>
-                    <h3 className="text-lg font-semibold text-slate-700 mb-3">This Month's Totals</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <StatCard title="Leads" value={monthlyTotals.leads} />
-                        <StatCard title="Appointments" value={monthlyTotals.appointments} />
-                        <StatCard title="Presentations" value={monthlyTotals.presentations} />
-                        <StatCard title="Sales" value={monthlyTotals.sales} />
-                    </div>
-                </div>
-            </div>
         </div>
     );
 };
