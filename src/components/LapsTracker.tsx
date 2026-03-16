@@ -365,6 +365,128 @@ const LapsTracker: React.FC<Props> = ({ lapsHistory, setLapsHistory }) => {
         </div>
       </div>
 
+      {/* PERFORMANCE TRENDS */}
+{lapsHistory.length > 1 && (() => {
+  const sorted = [...lapsHistory].sort((a, b) => a.date.localeCompare(b.date));
+  const last30 = sorted.slice(-30);
+
+  // MRR Line Chart Data
+  const mrrPoints = sorted.filter(d => d.mrr_current > 0);
+  const maxMrr = Math.max(...mrrPoints.map(d => d.mrr_current), 1);
+  const chartW = 600; const chartH = 120;
+  const mrrPath = mrrPoints.map((d, i) => {
+    const x = (i / (mrrPoints.length - 1 || 1)) * chartW;
+    const y = chartH - (d.mrr_current / maxMrr) * chartH;
+    return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+
+  // Month comparison
+  const now = new Date();
+  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
+  const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
+  const thisMonth = lapsHistory.filter(d => d.date >= thisMonthStart);
+  const lastMonth = lapsHistory.filter(d => d.date >= lastMonthStart && d.date <= lastMonthEnd);
+  const sumField = (arr: LapsData[], field: keyof LapsData) => arr.reduce((a, b) => a + ((b[field] as number) || 0), 0);
+  const delta = (curr: number, prev: number) => {
+    if (prev === 0) return null;
+    const pct = Math.round(((curr - prev) / prev) * 100);
+    return pct;
+  };
+
+  // Max leads for bar chart
+  const maxLeads = Math.max(...last30.map(d => d.leads), 1);
+
+  return (
+    <div className="border-t border-slate-100 pt-8 mb-8 space-y-8">
+      <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Performance Trends</h3>
+
+      {/* MRR Growth Chart */}
+      {mrrPoints.length > 1 && (
+        <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200">
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">MRR Portfolio Growth</p>
+          <div className="w-full overflow-x-auto">
+            <svg viewBox={`0 0 ${chartW} ${chartH + 20}`} className="w-full h-32" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="mrrGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3"/>
+                  <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.02"/>
+                </linearGradient>
+              </defs>
+              <path d={`${mrrPath} L${chartW},${chartH} L0,${chartH} Z`} fill="url(#mrrGrad)" />
+              <path d={mrrPath} fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+              {mrrPoints.map((d, i) => {
+                const x = (i / (mrrPoints.length - 1 || 1)) * chartW;
+                const y = chartH - (d.mrr_current / maxMrr) * chartH;
+                return <circle key={i} cx={x} cy={y} r="3" fill="#3b82f6" />;
+              })}
+            </svg>
+          </div>
+          <div className="flex justify-between mt-2">
+            <span className="text-xs text-slate-400">{mrrPoints[0]?.date}</span>
+            <span className="text-xs font-black text-emerald-600">${mrrPoints[mrrPoints.length - 1]?.mrr_current.toLocaleString()} current</span>
+            <span className="text-xs text-slate-400">{mrrPoints[mrrPoints.length - 1]?.date}</span>
+          </div>
+        </div>
+      )}
+
+      {/* 30-Day Leads Bar Chart */}
+      <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200">
+        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Daily Leads — Last 30 Days</p>
+        <div className="flex items-end gap-0.5 h-16">
+          {last30.map((d, i) => (
+            <div key={i} className="flex-1 flex flex-col items-center justify-end group relative">
+              <div
+                className="w-full rounded-sm bg-blue-500 hover:bg-blue-600 transition-all cursor-default"
+                style={{ height: `${Math.max(2, (d.leads / maxLeads) * 56)}px` }}
+              />
+              <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[9px] font-bold px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                {d.leads} leads<br/>{d.date}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-between mt-2">
+          <span className="text-xs text-slate-400">{last30[0]?.date}</span>
+          <span className="text-xs text-slate-400">{last30[last30.length - 1]?.date}</span>
+        </div>
+      </div>
+
+      {/* Month vs Last Month */}
+      <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200">
+        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">This Month vs Last Month</p>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          {(['leads', 'appointments', 'presentations', 'sales'] as (keyof LapsData)[]).map(field => {
+            const curr = sumField(thisMonth, field);
+            const prev = sumField(lastMonth, field);
+            const d = delta(curr, prev);
+            return (
+              <div key={field} className="bg-white rounded-xl p-3 border border-slate-200 text-center">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{field}</p>
+                <p className="text-xl font-black text-slate-800">{curr}</p>
+                {d !== null && (
+                  <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${d >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                    {d >= 0 ? '+' : ''}{d}%
+                  </span>
+                )}
+                <p className="text-[9px] text-slate-400 mt-1">prev: {prev}</p>
+              </div>
+            );
+          })}
+          <div className="bg-white rounded-xl p-3 border border-slate-200 text-center">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">MRR Added</p>
+            <p className="text-xl font-black text-emerald-600">
+              ${sumField(thisMonth.filter(d => d.salesDetails && d.salesDetails.length > 0), 'mrr_current').toLocaleString()}
+            </p>
+            <p className="text-[9px] text-slate-400 mt-1">this month</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+})()}
+
+
       {/* HISTORY LOG */}
       <div className="border-t border-slate-100 pt-6">
         <button onClick={() => setShowHistory(!showHistory)} className="w-full flex justify-between items-center text-left focus:outline-none group">
