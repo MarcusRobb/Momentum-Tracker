@@ -380,6 +380,8 @@ const App = () => {
     const [newTaskText, setNewTaskText] = useState('');
     const [newTaskDescription, setNewTaskDescription] = useState('');
     const [newTaskTags, setNewTaskTags] = useState('');
+    const [newTaskUrgency, setNewTaskUrgency] = useState<'urgent-important' | 'urgent-not-important' | 'important' | 'not-important' | undefined>(undefined);
+
     
     const [showCompleted, setShowCompleted] = useState(false);
     const [showIdeasVault, setShowIdeasVault] = useState(false);
@@ -608,72 +610,74 @@ const forecastStats = useMemo(() => {
         reader.readAsText(file); e.target.value='';
     };
 
-    // --- TASK ACTIONS ---
-    const handleAddTask = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (newTaskText.trim() === '') return;
-        const tagsArray = newTaskTags.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
-        const newTask: Task = { 
-            id: generateUUID(), text: newTaskText, description: newTaskDescription, tags: tagsArray,
-            isCompleted: false, isIncomeGenerating: false, notes: '', scheduledTime: '', duration: 60, source: 'manual' 
-        };
-        const updated = [newTask, ...brainDump];
-        setBrainDump(updated); cloudUpdate('timeboxing-brainDump', updated);
-        setNewTaskText(''); setNewTaskDescription(''); setNewTaskTags('');
+  // --- TASK ACTIONS ---
+const handleAddTask = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newTaskText.trim() === '') return;
+    const tagsArray = newTaskTags.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
+    const newTask: Task = { 
+        id: generateUUID(), text: newTaskText, description: newTaskDescription, tags: tagsArray,
+        urgency: newTaskUrgency,
+        isCompleted: false, isIncomeGenerating: false, notes: '', scheduledTime: '', duration: 60, source: 'manual' 
     };
+    const updated = [newTask, ...brainDump];
+    setBrainDump(updated); cloudUpdate('timeboxing-brainDump', updated);
+    setNewTaskText(''); setNewTaskDescription(''); setNewTaskTags(''); setNewTaskUrgency(undefined);
+};
 
-    const handleUpdateTask = useCallback((updatedTask: Task) => {
-        const taskLists = [
-            { key: 'timeboxing-brainDump', state: brainDump, setter: setBrainDump },
-            { key: `timeboxing-dailyTodo_${todayStr}`, state: dailyTodo, setter: setDailyTodo },
-            { key: `timeboxing-topThree_${todayStr}`, state: topThree, setter: setTopThree }
-        ];
+const handleUpdateTask = useCallback((updatedTask: Task) => {
+    const taskLists = [
+        { key: 'timeboxing-brainDump', state: brainDump, setter: setBrainDump },
+        { key: `timeboxing-dailyTodo_${todayStr}`, state: dailyTodo, setter: setDailyTodo },
+        { key: `timeboxing-topThree_${todayStr}`, state: topThree, setter: setTopThree }
+    ];
 
-        if (updatedTask.isCompleted) {
-            const archived = { ...updatedTask, completedAt: new Date().toISOString() };
-            const newHistory = [archived, ...completedHistory];
-            setCompletedHistory(newHistory); cloudUpdate('timeboxing-completedHistory', newHistory);
+    if (updatedTask.isCompleted) {
+        const archived = { ...updatedTask, completedAt: new Date().toISOString() };
+        const newHistory = [archived, ...completedHistory];
+        setCompletedHistory(newHistory); cloudUpdate('timeboxing-completedHistory', newHistory);
 
-            taskLists.forEach(({ key, state, setter }) => {
-                const filtered = state.filter(t => t.id !== updatedTask.id);
-                setter(filtered); cloudUpdate(key, filtered);
-            });
-        } else {
-            taskLists.forEach(({ key, state, setter }) => {
-                if (state.some(t => t.id === updatedTask.id)) {
-                    const mapped = state.map(t => t.id === updatedTask.id ? updatedTask : t);
-                    setter(mapped); cloudUpdate(key, mapped);
-                }
-            });
-        }
-    }, [brainDump, dailyTodo, topThree, completedHistory, todayStr]);
+        taskLists.forEach(({ key, state, setter }) => {
+            const filtered = state.filter(t => t.id !== updatedTask.id);
+            setter(filtered); cloudUpdate(key, filtered);
+        });
+    } else {
+        taskLists.forEach(({ key, state, setter }) => {
+            if (state.some(t => t.id === updatedTask.id)) {
+                const mapped = state.map(t => t.id === updatedTask.id ? updatedTask : t);
+                setter(mapped); cloudUpdate(key, mapped);
+            }
+        });
+    }
+}, [brainDump, dailyTodo, topThree, completedHistory, todayStr]);
 
-    const handleUpdateNonNegotiableTask = (updatedTask: Task) => {
-        const updated = nonNegotiableTasks.map(t => t.id === updatedTask.id ? updatedTask : t);
-        setNonNegotiableTasks(updated); cloudUpdate(`timeboxing-nonNegotiable_${todayStr}`, updated);
-    };
+const handleUpdateNonNegotiableTask = (updatedTask: Task) => {
+    const updated = nonNegotiableTasks.map(t => t.id === updatedTask.id ? updatedTask : t);
+    setNonNegotiableTasks(updated); cloudUpdate(`timeboxing-nonNegotiable_${todayStr}`, updated);
+};
 
-    const handleUpdateVaultTask = (updatedTask: Task) => {
-        const updated = ideasVault.map(t => t.id === updatedTask.id ? updatedTask : t);
-        setIdeasVault(updated); cloudUpdate('timeboxing-ideasVault', updated);
-    };
+const handleUpdateVaultTask = (updatedTask: Task) => {
+    const updated = ideasVault.map(t => t.id === updatedTask.id ? updatedTask : t);
+    setIdeasVault(updated); cloudUpdate('timeboxing-ideasVault', updated);
+};
 
-    const restoreTask = (id: string) => { 
-        const taskToRestore = completedHistory.find(t => t.id === id); 
-        if (taskToRestore) { 
-            const newDump = [{ ...taskToRestore, isCompleted: false, completedAt: undefined }, ...brainDump];
-            setBrainDump(newDump); cloudUpdate('timeboxing-brainDump', newDump);
-            const newHistory = completedHistory.filter(t => t.id !== id);
-            setCompletedHistory(newHistory); cloudUpdate('timeboxing-completedHistory', newHistory);
-        } 
-    };
+const restoreTask = (id: string) => { 
+    const taskToRestore = completedHistory.find(t => t.id === id); 
+    if (taskToRestore) { 
+        const newDump = [{ ...taskToRestore, isCompleted: false, completedAt: undefined }, ...brainDump];
+        setBrainDump(newDump); cloudUpdate('timeboxing-brainDump', newDump);
+        const newHistory = completedHistory.filter(t => t.id !== id);
+        setCompletedHistory(newHistory); cloudUpdate('timeboxing-completedHistory', newHistory);
+    } 
+};
 
-    const handleDeleteTask = (id: string, currentList: Task[], key: string) => { 
-        if (window.confirm("Delete this permanently?")) {
-            const updated = currentList.filter(t => t.id !== id);
-            cloudUpdate(key, updated);
-        } 
-    };
+const handleDeleteTask = (id: string, currentList: Task[], key: string) => { 
+    if (window.confirm("Delete this permanently?")) {
+        const updated = currentList.filter(t => t.id !== id);
+        cloudUpdate(key, updated);
+    } 
+};
+
 
     // --- PIPELINE LOGIC ---
     const promoteToDailyFromDump = (id: string) => { const t = brainDump.find(x => x.id === id); if (t) { const nd = [t, ...dailyTodo]; setDailyTodo(nd); cloudUpdate(`timeboxing-dailyTodo_${todayStr}`, nd); const nb = brainDump.filter(x => x.id !== id); setBrainDump(nb); cloudUpdate('timeboxing-brainDump', nb); } };
@@ -1029,30 +1033,51 @@ const filteredVault = ideasVault.filter((idea: Task) =>
             
             {aiError && <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 font-medium">{aiError}</div>}
 
-            {/* CAPTURE FORM */}
-            <div className="bg-white border border-blue-100 rounded-2xl p-6 mb-8 shadow-sm relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
-              <form onSubmit={handleAddTask} className="flex flex-col gap-4 relative z-10">
-               <input 
-                    type="text" value={newTaskText} onChange={(e) => setNewTaskText(e.target.value)} placeholder="Capture a thought, task, or idea..." 
-                    className="w-full rounded-xl border border-blue-200 bg-white p-5 text-lg font-black text-slate-800 outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-400 transition-all shadow-sm" 
-                />
-                <textarea 
-                    value={newTaskDescription} onChange={(e) => setNewTaskDescription(e.target.value)} placeholder="Add details, links, or context (Optional)..." 
-                    className="w-full rounded-xl border-none bg-slate-50/50 hover:bg-slate-50 p-4 text-sm font-medium outline-none focus:bg-white transition-all resize-none shadow-inner" rows={2} 
-                />
-                <div className="flex flex-col md:flex-row gap-4">
-                  <input 
-                      type="text" value={newTaskTags} onChange={(e) => setNewTaskTags(e.target.value)} placeholder="Add tags (e.g., content, admin)..." 
-                      className="flex-grow rounded-xl border-none bg-slate-50/50 hover:bg-slate-50 p-4 text-sm font-medium outline-none focus:bg-white transition-all shadow-inner" 
-                  />
-                  <button type="submit" className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl shadow-lg shadow-blue-500/30 font-black tracking-wide uppercase text-xs active:scale-95 transition-all">
-                      Capture
-                  </button>
-                </div>
-              </form>
-            </div>
-            
+       {/* CAPTURE FORM */}
+<div className="bg-white border border-blue-100 rounded-2xl p-6 mb-8 shadow-sm relative overflow-hidden">
+  <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
+  <form onSubmit={handleAddTask} className="flex flex-col gap-4 relative z-10">
+    <input 
+      type="text" value={newTaskText} onChange={(e) => setNewTaskText(e.target.value)} placeholder="Capture a thought, task, or idea..." 
+      className="w-full rounded-xl border border-blue-200 bg-white p-5 text-lg font-black text-slate-800 outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-400 transition-all shadow-sm" 
+    />
+    <textarea 
+      value={newTaskDescription} onChange={(e) => setNewTaskDescription(e.target.value)} placeholder="Add details, links, or context (Optional)..." 
+      className="w-full rounded-xl border-none bg-slate-50/50 hover:bg-slate-50 p-4 text-sm font-medium outline-none focus:bg-white transition-all resize-none shadow-inner" rows={2} 
+    />
+    <div className="grid grid-cols-2 gap-2">
+      {([
+        { value: 'urgent-important',     label: '⚡ Urgent + Important',     active: 'bg-yellow-300 text-yellow-900 border-yellow-400' },
+        { value: 'urgent-not-important', label: '🔔 Urgent / Not Important', active: 'bg-purple-200 text-purple-900 border-purple-300' },
+        { value: 'important',            label: '✅ Important',              active: 'bg-emerald-200 text-emerald-900 border-emerald-300' },
+        { value: 'not-important',        label: '🗑️ Not Important',         active: 'bg-slate-200 text-slate-600 border-slate-300' },
+      ] as const).map(({ value, label, active }) => (
+        <button
+          key={value}
+          type="button"
+          onClick={() => setNewTaskUrgency(newTaskUrgency === value ? undefined : value)}
+          className={`py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg border transition-all ${
+            newTaskUrgency === value
+              ? `${active} shadow-sm`
+              : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+    <div className="flex flex-col md:flex-row gap-4">
+      <input 
+        type="text" value={newTaskTags} onChange={(e) => setNewTaskTags(e.target.value)} placeholder="Add tags (e.g., content, admin)..." 
+        className="flex-grow rounded-xl border-none bg-slate-50/50 hover:bg-slate-50 p-4 text-sm font-medium outline-none focus:bg-white transition-all shadow-inner" 
+      />
+      <button type="submit" className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl shadow-lg shadow-blue-500/30 font-black tracking-wide uppercase text-xs active:scale-95 transition-all">
+        Capture
+      </button>
+    </div>
+  </form>
+</div>
+
             {showBrainDumpList && (
                 <div className="space-y-4 max-h-[600px] overflow-y-auto pr-3 custom-scrollbar">
                   {filteredBrainDump.length > 0 ? filteredBrainDump.map(task => (
