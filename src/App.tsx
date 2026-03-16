@@ -950,6 +950,12 @@ const filteredVault = ideasVault.filter((idea: Task) =>
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-blue-50 rounded-lg"><ListTodoIcon className="w-5 h-5 text-blue-600" /></div>
                     <h2 className="text-xl font-black text-slate-800 tracking-tight">Daily Execution</h2>
+                <button
+                    onClick={handleAIPrioritize} disabled={isAIPrioritizing || dailyTodo.length === 0}
+                    className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-black rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md active:scale-95 transition-all"
+                >
+                    <SparklesIcon className="w-3.5 h-3.5" /> {isAIPrioritizing ? 'Thinking...' : 'AI Prioritize'}
+                </button>      
                 </div>
                 <div className="relative w-full md:w-64">
                     <input 
@@ -1002,12 +1008,7 @@ const filteredVault = ideasVault.filter((idea: Task) =>
                     type="text" placeholder="Search master list..." value={tagSearch} onChange={e => setTagSearch(e.target.value)}
                     className="flex-1 lg:flex-none lg:w-48 pl-4 pr-4 py-2.5 text-sm font-medium rounded-xl border border-slate-200 bg-slate-50 focus:bg-white outline-none focus:ring-2 focus:ring-blue-500/20"
                 />
-                <button
-                    onClick={handleAIPrioritize} disabled={isAIPrioritizing || brainDump.length === 0}
-                    className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-black rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md active:scale-95 transition-all"
-                >
-                    <SparklesIcon className="w-3.5 h-3.5" /> {isAIPrioritizing ? 'Thinking...' : 'AI Prioritize'}
-                </button>
+              
                 <button onClick={() => importFileRef.current?.click()} className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold rounded-xl bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 transition-all shadow-sm"><UploadIcon className="w-3.5 h-3.5" /> CSV</button>
                 
                 {/* MIGRATION ENGINE (RESTORING BACKUP.JSON TO CLOUD) */}
