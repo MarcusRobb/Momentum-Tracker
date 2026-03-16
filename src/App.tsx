@@ -195,109 +195,147 @@ const TaskCard = ({
       window.open(calendarUrl.toString(), '_blank', 'noopener,noreferrer');
     };
 
-    return (
-      <div className={`p-5 rounded-2xl bg-white border border-slate-200/60 shadow-sm transition-all duration-200 group hover:shadow-md hover:border-blue-200 ${task.isCompleted ? 'opacity-60' : ''}`}>
-        <div className="flex items-start gap-4">
-          <input type="checkbox" checked={task.isCompleted} onChange={(e) => handleToggle('isCompleted', e.target.checked)} className="mt-1 h-5 w-5 rounded-md border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer transition-all" />
-          <div className="flex-1">
-            <div className="flex items-start gap-3">
-              {isEditingTitle ? (
-                  <input type="text" value={tempTitle} onChange={(e) => setTempTitle(e.target.value)} onBlur={handleTitleEdit} onKeyDown={(e) => { if (e.key === 'Enter') handleTitleEdit(); if (e.key === 'Escape') { setTempTitle(task.text); setIsEditingTitle(false); }}} className="flex-1 font-bold text-slate-800 bg-slate-50 border border-blue-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500" autoFocus />
-              ) : (
-                  <div className="flex-1">
-                      <p className={`font-bold text-slate-800 text-[15px] ${task.isCompleted ? 'line-through text-slate-500' : ''}`}>{task.text}</p>
-                      <div className="flex flex-wrap items-center gap-1.5 mt-2 mb-1">
-                        {isEditingTags ? (
-                            <input 
-                                type="text" value={tempTags} onChange={(e) => setTempTags(e.target.value)} onBlur={handleTagsEdit} onKeyDown={(e) => e.key === 'Enter' && handleTagsEdit()}
-                                placeholder="Add tags..."
-                                className="text-[10px] px-2 py-0.5 rounded border border-blue-200 bg-blue-50 outline-none w-full"
-                                autoFocus
-                            />
-                        ) : (
-                            <>
-                                {task.tags && task.tags.length > 0 ? (
-                                    task.tags.map((tag: string, idx: number) => (
-                                        <span key={idx} className="px-2.5 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 text-[10px] font-black rounded-md uppercase tracking-wider">#{tag}</span>
-                                    ))
-                                ) : (
-                                    <button onClick={() => setIsEditingTags(true)} className="text-[10px] text-slate-400 hover:text-blue-500 flex items-center gap-1"><HashIcon className="w-3 h-3" /> Add Tags</button>
-                                )}
-                                <button onClick={() => setIsEditingTags(true)} className="p-1 opacity-0 group-hover:opacity-100 transition-opacity"><EditIcon className="w-3 h-3 text-slate-300 hover:text-blue-600" /></button>
-                            </>
-                        )}
-                      </div>
-                  </div>
-              )}
-              <button onClick={handleTitleEdit} className="p-1.5 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"><EditIcon className="w-4 h-4" /></button>
-            </div>
-            <div className="mt-3">
-              <div className="flex items-center gap-2">
-                <button onClick={() => setShowDescription(!showDescription)} className="text-xs font-semibold text-slate-400 hover:text-slate-600 flex items-center gap-1 transition-colors">
-                  <ChevronDownIcon className={`w-3.5 h-3.5 transform transition-transform ${showDescription ? 'rotate-180' : ''}`} />{task.description ? 'Show Description' : 'Add Description'}
-                </button>
-              </div>
-              {showDescription && (
-                <div className="mt-3">
-                  {isEditingDescription || !task.description ? (
-                    <div className="space-y-3">
-                      <textarea value={tempDescription} onChange={(e) => setTempDescription(e.target.value)} placeholder="Add specific details or notes..." className="w-full text-sm p-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all min-h-[80px]" autoFocus />
-                      <div className="flex gap-2">
-                        <button onClick={handleDescriptionEdit} className="px-4 py-1.5 text-xs font-bold bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors">Save Notes</button>
-                        <button onClick={() => { setTempDescription(task.description || ''); setIsEditingDescription(false); if(!task.description) setShowDescription(false); }} className="px-4 py-1.5 text-xs font-bold bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors">Cancel</button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-sm text-slate-600 bg-slate-50 border border-slate-100 p-3 rounded-xl whitespace-pre-wrap relative group/desc">
-                        {task.description}
-                        <button onClick={() => setIsEditingDescription(true)} className="absolute top-2 right-2 p-1.5 bg-white text-slate-400 hover:text-blue-600 rounded-md shadow-sm border border-slate-100 opacity-0 group-hover/desc:opacity-100 transition-all"><EditIcon className="w-3.5 h-3.5"/></button>
-                    </div>
-                  )}
+      return (
+    <div className={`p-5 rounded-2xl border shadow-sm transition-all duration-200 group hover:shadow-md ${
+      task.urgency === 'urgent-important'     ? 'bg-yellow-50 border-yellow-300 hover:border-yellow-400' :
+      task.urgency === 'urgent-not-important' ? 'bg-purple-50 border-purple-200 hover:border-purple-300' :
+      task.urgency === 'important'            ? 'bg-emerald-50 border-emerald-200 hover:border-emerald-300' :
+      task.urgency === 'not-important'        ? 'bg-slate-100 border-slate-300 hover:border-slate-400' :
+      'bg-white border-slate-200/60 hover:border-blue-200'
+    } ${task.isCompleted ? 'opacity-60' : ''}`}>
+      <div className="flex items-start gap-4">
+        <input type="checkbox" checked={task.isCompleted} onChange={(e) => handleToggle('isCompleted', e.target.checked)} className="mt-1 h-5 w-5 rounded-md border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer transition-all" />
+        <div className="flex-1">
+          <div className="flex items-start gap-3">
+            {isEditingTitle ? (
+              <input type="text" value={tempTitle} onChange={(e) => setTempTitle(e.target.value)} onBlur={handleTitleEdit} onKeyDown={(e) => { if (e.key === 'Enter') handleTitleEdit(); if (e.key === 'Escape') { setTempTitle(task.text); setIsEditingTitle(false); }}} className="flex-1 font-bold text-slate-800 bg-slate-50 border border-blue-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500" autoFocus />
+            ) : (
+              <div className="flex-1">
+                <div className={`-mx-1 px-2 py-0.5 rounded-lg inline-block ${
+                  task.urgency === 'urgent-important'     ? 'bg-yellow-300' :
+                  task.urgency === 'urgent-not-important' ? 'bg-purple-200' :
+                  task.urgency === 'important'            ? 'bg-emerald-200' :
+                  task.urgency === 'not-important'        ? 'bg-slate-200' : ''
+                }`}>
+                  <p className={`font-bold text-slate-800 text-[15px] ${task.isCompleted ? 'line-through text-slate-500' : ''}`}>{task.text}</p>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+            <button onClick={handleTitleEdit} className="p-1.5 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"><EditIcon className="w-4 h-4" /></button>
           </div>
-        </div>
-        
-        {isTopThree && (
-          <div className="mt-5 pt-5 border-t border-slate-100 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <TimePicker12Hour value={task.scheduledTime || ''} onChange={(time) => handleToggle('scheduledTime', time)} className="w-full" />
-              <select value={task.duration || 60} onChange={(e) => handleToggle('duration', Number(e.target.value))} className="block w-full text-xs font-medium p-2.5 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all text-slate-700 cursor-pointer">
-                <option value="15">15 mins block</option><option value="30">30 mins block</option><option value="45">45 mins block</option><option value="60">1 hour block</option><option value="90">1.5 hours block</option>
-              </select>
+
+          <div className="flex flex-wrap items-center gap-1.5 mt-2 mb-1">
+            {isEditingTags ? (
+              <input type="text" value={tempTags} onChange={(e) => setTempTags(e.target.value)} onBlur={handleTagsEdit} onKeyDown={(e) => e.key === 'Enter' && handleTagsEdit()} placeholder="Add tags..." className="text-[10px] px-2 py-0.5 rounded border border-blue-200 bg-blue-50 outline-none w-full" autoFocus />
+            ) : (
+              <>
+                {task.tags && task.tags.length > 0 ? task.tags.map((tag: string, idx: number) => (
+                  <span key={idx} className="px-2.5 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 text-[10px] font-black rounded-md uppercase tracking-wider">{tag}</span>
+                )) : (
+                  <button onClick={() => setIsEditingTags(true)} className="text-[10px] text-slate-400 hover:text-blue-500 flex items-center gap-1"><HashIcon className="w-3 h-3" />Add Tags</button>
+                )}
+                <button onClick={() => setIsEditingTags(true)} className="p-1 opacity-0 group-hover:opacity-100 transition-opacity"><EditIcon className="w-3 h-3 text-slate-300 hover:text-blue-600" /></button>
+              </>
+            )}
+          </div>
+
+          {/* EISENHOWER MATRIX */}
+          <div className="grid grid-cols-2 gap-2 mt-3">
+            {(
+              [
+                { value: 'urgent-important',     label: '⚡ Urgent + Important',     active: 'bg-yellow-300 text-yellow-900 border-yellow-400',     hover: 'hover:bg-yellow-50 hover:text-yellow-700' },
+                { value: 'urgent-not-important', label: '🔔 Urgent / Not Important', active: 'bg-purple-200 text-purple-900 border-purple-300',     hover: 'hover:bg-purple-50 hover:text-purple-700' },
+                { value: 'important',            label: '✅ Important',              active: 'bg-emerald-200 text-emerald-900 border-emerald-300', hover: 'hover:bg-emerald-50 hover:text-emerald-700' },
+                { value: 'not-important',        label: '🗑️ Not Important',         active: 'bg-slate-200 text-slate-600 border-slate-300',       hover: 'hover:bg-slate-100 hover:text-slate-600' },
+              ] as const
+            ).map(({ value, label, active, hover }) => {
+              const isSelected = task.urgency === value;
+              const allUrgencyTags = ['urgent-important', 'urgent-not-important', 'important', 'not-important'];
+              return (
+                <button
+                  key={value}
+                  onClick={() => {
+                    const newUrgency = isSelected ? undefined : value;
+                    const strippedTags = (task.tags || []).filter((t: string) => !allUrgencyTags.includes(t));
+                    const newTags = newUrgency ? [...strippedTags, newUrgency] : strippedTags;
+                    onUpdate({ ...task, urgency: newUrgency, tags: newTags });
+                  }}
+                  className={`py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg border transition-all ${
+                    isSelected ? `${active} shadow-sm` : `bg-slate-50 text-slate-400 border-slate-200 ${hover}`
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-3">
+            <div className="flex items-center gap-2">
+              <button onClick={() => setShowDescription(!showDescription)} className="text-xs font-semibold text-slate-400 hover:text-slate-600 flex items-center gap-1 transition-colors">
+                <ChevronDownIcon className={`w-3.5 h-3.5 transform transition-transform ${showDescription ? 'rotate-180' : ''}`} />
+                {task.description ? 'Show Description' : 'Add Description'}
+              </button>
             </div>
-            
-            <button onClick={handleAddToCalendar} className="w-full flex items-center justify-center gap-2 p-2.5 rounded-lg bg-white border border-slate-200 text-slate-600 font-bold text-xs hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-all">
-              <CalendarIcon className="w-4 h-4" /><span>{task.scheduledTime ? 'Add Block to Calendar' : 'Open Calendar'}</span>
-            </button>
-            
-            <div>
+            {showDescription && (
+              <div className="mt-3">
+                {isEditingDescription || !task.description ? (
+                  <div className="space-y-3">
+                    <textarea value={tempDescription} onChange={(e) => setTempDescription(e.target.value)} placeholder="Add specific details or notes..." className="w-full text-sm p-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all min-h-[80px]" autoFocus />
+                    <div className="flex gap-2">
+                      <button onClick={handleDescriptionEdit} className="px-4 py-1.5 text-xs font-bold bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors">Save Notes</button>
+                      <button onClick={() => { setTempDescription(task.description); setIsEditingDescription(false); if (!task.description) setShowDescription(false); }} className="px-4 py-1.5 text-xs font-bold bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors">Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-slate-600 bg-slate-50 border border-slate-100 p-3 rounded-xl whitespace-pre-wrap relative group/desc">
+                    {task.description}
+                    <button onClick={() => setIsEditingDescription(true)} className="absolute top-2 right-2 p-1.5 bg-white text-slate-400 hover:text-blue-600 rounded-md shadow-sm border border-slate-100 opacity-0 group-hover/desc:opacity-100 transition-all"><EditIcon className="w-3.5 h-3.5" /></button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {isTopThree && (
+            <div className="mt-5 pt-5 border-t border-slate-100 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <TimePicker12Hour value={task.scheduledTime || ''} onChange={(time) => handleToggle('scheduledTime', time)} className="w-full" />
+                <select value={task.duration || 60} onChange={(e) => handleToggle('duration', Number(e.target.value))} className="block w-full text-xs font-medium p-2.5 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all text-slate-700 cursor-pointer">
+                  <option value="15">15 mins block</option>
+                  <option value="30">30 mins block</option>
+                  <option value="45">45 mins block</option>
+                  <option value="60">1 hour block</option>
+                  <option value="90">1.5 hours block</option>
+                </select>
+              </div>
+              <button onClick={handleAddToCalendar} className="w-full flex items-center justify-center gap-2 p-2.5 rounded-lg bg-white border border-slate-200 text-slate-600 font-bold text-xs hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-all">
+                <CalendarIcon className="w-4 h-4" /><span>{task.scheduledTime ? 'Add Block to Calendar' : 'Open Calendar'}</span>
+              </button>
+              <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Action Points & Outcomes</label>
                 <textarea placeholder="What defines 'done' for this task?" value={task.notes || ''} onChange={(e) => handleToggle('notes', e.target.value)} rows={2} className="block w-full text-sm p-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
+              </div>
+              <button onClick={() => handleToggle('isIncomeGenerating', !task.isIncomeGenerating)} className={`w-full flex items-center justify-center gap-2 px-4 py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-all ${task.isIncomeGenerating ? 'bg-amber-100 text-amber-700 border border-amber-200 shadow-sm' : 'bg-slate-50 text-slate-400 border border-slate-200 hover:bg-slate-100'}`}>
+                <DollarSignIcon className="w-4 h-4" /><span>Income-Generating Activity</span>
+              </button>
             </div>
-            
-            <button 
-              onClick={() => handleToggle('isIncomeGenerating', !task.isIncomeGenerating)} 
-              className={`w-full flex items-center justify-center gap-2 px-4 py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-all ${task.isIncomeGenerating ? 'bg-amber-100 text-amber-700 border border-amber-200 shadow-sm' : 'bg-slate-50 text-slate-400 border border-slate-200 hover:bg-slate-100'}`}
-            >
-              <DollarSignIcon className="w-4 h-4" /><span>Income-Generating Activity</span>
-            </button>
+          )}
+
+          <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {onPromoteToDaily && <button onClick={onPromoteToDaily} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-100 rounded-md hover:bg-blue-100 hover:border-blue-200 transition-colors"><ArrowUpCircleIcon className="w-3.5 h-3.5" />To Daily</button>}
+              {onPromoteToTop && <button onClick={onPromoteToTop} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-md hover:bg-emerald-100 hover:border-emerald-200 transition-colors"><ArrowUpCircleIcon className="w-3.5 h-3.5" />To Top 3</button>}
+              {onDemoteToDaily && <button onClick={onDemoteToDaily} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-100 rounded-md hover:bg-blue-100 hover:border-blue-200 transition-colors"><ArrowDownCircleIcon className="w-3.5 h-3.5" />To Daily</button>}
+              {onDemoteToDump && <button onClick={onDemoteToDump} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold text-slate-600 bg-slate-100 border border-slate-200 rounded-md hover:bg-slate-200 transition-colors"><ArrowDownCircleIcon className="w-3.5 h-3.5" />To Dump</button>}
+              {onSendToVault && <button onClick={onSendToVault} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold text-purple-700 bg-purple-50 border border-purple-100 rounded-md hover:bg-purple-100 hover:border-purple-200 transition-colors"><LightbulbIcon className="w-3.5 h-3.5" />To Vault</button>}
+            </div>
+            <button onClick={onDelete} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold text-red-600 hover:bg-red-50 rounded-md transition-colors"><TrashIcon className="w-3.5 h-3.5" />Delete</button>
           </div>
-        )}
-        
-        <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
-          <div className="flex flex-wrap items-center gap-1.5">
-            {onPromoteToDaily && <button onClick={onPromoteToDaily} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-100 rounded-md hover:bg-blue-100 hover:border-blue-200 transition-colors"><ArrowUpCircleIcon className="w-3.5 h-3.5" />To Daily</button>}
-            {onPromoteToTop && <button onClick={onPromoteToTop} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-md hover:bg-emerald-100 hover:border-emerald-200 transition-colors"><ArrowUpCircleIcon className="w-3.5 h-3.5" />To Top 3</button>}
-            {onDemoteToDaily && <button onClick={onDemoteToDaily} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-100 rounded-md hover:bg-blue-100 hover:border-blue-200 transition-colors"><ArrowDownCircleIcon className="w-3.5 h-3.5" />To Daily</button>}
-            {onDemoteToDump && <button onClick={onDemoteToDump} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold text-slate-600 bg-slate-100 border border-slate-200 rounded-md hover:bg-slate-200 transition-colors"><ArrowDownCircleIcon className="w-3.5 h-3.5" />To Dump</button>}
-            {onSendToVault && <button onClick={onSendToVault} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold text-purple-700 bg-purple-50 border border-purple-100 rounded-md hover:bg-purple-100 hover:border-purple-200 transition-colors"><LightbulbIcon className="w-3.5 h-3.5" />To Vault</button>}
-          </div>
-          <button onClick={onDelete} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold text-red-600 hover:bg-red-50 rounded-md transition-colors"><TrashIcon className="w-3.5 h-3.5" />Delete</button>
         </div>
       </div>
-    );
+    </div>
+  );
 };
 
 const NonNegotiableTasks = ({ tasks, onUpdateTask }: any) => {

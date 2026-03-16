@@ -16,6 +16,7 @@ export interface Task {
   tags?: string[];
   description?: string;
   source?: 'manual' | 'hl_briefing' | 'claude_prioritiser';
+   urgency?: 'urgent-important' | 'urgent-not-important' | 'important' | 'not-important';
 }
 
 export interface LapsData {
