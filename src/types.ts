@@ -1,3 +1,9 @@
+export interface SaleDetail {
+  id: string;
+  setupFee: number;
+  mrr: number;
+}
+
 export interface Task {
   id: string;
   text: string;
@@ -5,31 +11,30 @@ export interface Task {
   isIncomeGenerating: boolean;
   notes: string;
   scheduledTime: string;
-  completedAt?: string; // ISO string
-  duration?: number; // Duration in minutes
-  // Build 2 Additions
-  tags?: string[];          
-  description?: string;    // Longer notes field
+  completedAt?: string;
+  duration?: number;
+  tags?: string[];
+  description?: string;
   source?: 'manual' | 'hl_briefing' | 'claude_prioritiser';
 }
 
 export interface LapsData {
-  date: string; // YYYY-MM-DD
+  date: string;
   leads: number;
   appointments: number;
   presentations: number;
   sales: number;
-  // Build 2 Activity Layer Additions
-  outreach_emails: number; // Target: 5
+  outreach_emails: number;
   voice_drops: number;
-  li_comments: number;     // Target: 2
+  li_comments: number;
   li_posts: number;
-  li_dms: number;          // Target: 2
-  mrr_current: number;     // MRR Row Addition
+  li_dms: number;
+  mrr_current: number;
+  salesDetails?: SaleDetail[];
 }
 
 export interface AccountabilityData {
-  date: string; // YYYY-MM-DD
+  date: string;
   appointment: boolean;
   spokeToPerson: boolean;
   taughtSomeone: boolean;
