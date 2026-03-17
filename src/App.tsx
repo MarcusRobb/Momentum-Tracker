@@ -147,12 +147,16 @@ const TaskCard = ({
     onDemoteToDaily, 
     onDemoteToDump, 
     onSendToVault, 
-    isTopThree 
+    isTopThree,
+    defaultCollapsed
 }: any) => {
+
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [isEditingDescription, setIsEditingDescription] = useState(false);
     const [isEditingTags, setIsEditingTags] = useState(false);
     const [showDescription, setShowDescription] = useState(false);
+    const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed ?? false);
+
     
     const [tempTitle, setTempTitle] = useState(task.text);
     const [tempDescription, setTempDescription] = useState(task.description || '');
@@ -194,15 +198,52 @@ const TaskCard = ({
       calendarUrl.searchParams.append('details', task.notes || `Completing task: ${task.text}`);
       window.open(calendarUrl.toString(), '_blank', 'noopener,noreferrer');
     };
-
+    if (isCollapsed) {
       return (
-    <div className={`p-5 rounded-2xl border shadow-sm transition-all duration-200 group hover:shadow-md ${
+        <div
+          className={`flex items-center gap-3 px-4 py-3 rounded-2xl bg-white border border-slate-200/60 shadow-sm hover:shadow-md hover:border-blue-200 cursor-pointer transition-all ${task.isCompleted ? 'opacity-60' : ''}`}
+          onClick={(e) => { if ((e.target as HTMLElement).tagName !== 'INPUT') setIsCollapsed(false) }}
+        >
+          <input
+            type="checkbox"
+            checked={task.isCompleted}
+            onChange={e => { e.stopPropagation(); handleToggle('isCompleted', e.target.checked); }}
+            onClick={e => e.stopPropagation()}
+            className="h-5 w-5 rounded-md border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer flex-shrink-0"
+          />
+          <div className="flex-1 min-w-0">
+            <p className={`font-bold text-slate-800 text-sm leading-snug ${task.isCompleted ? 'line-through text-slate-400' : ''}`}>{task.text}</p>
+            {((task.tags && task.tags.length > 0) || task.isIncomeGenerating || task.scheduledTime) && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {task.tags?.map((tag: string, idx: number) => (
+                  <span key={idx} className="px-2 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 text-[10px] font-black rounded-md uppercase tracking-wider">{tag}</span>
+                ))}
+                {task.isIncomeGenerating && <span className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-100 text-[10px] font-black rounded-md uppercase tracking-wider">💰 IG</span>}
+                {task.scheduledTime && <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-bold rounded-md">{task.scheduledTime}</span>}
+              </div>
+            )}
+          </div>
+          <ChevronDownIcon className="w-4 h-4 text-slate-400 flex-shrink-0" />
+        </div>
+      )
+    }
+
+       return (
+    <div className={`relative p-5 rounded-2xl border shadow-sm transition-all duration-200 group hover:shadow-md ${
       task.urgency === 'urgent-important'     ? 'bg-yellow-50 border-yellow-300 hover:border-yellow-400' :
       task.urgency === 'urgent-not-important' ? 'bg-purple-50 border-purple-200 hover:border-purple-300' :
       task.urgency === 'important'            ? 'bg-emerald-50 border-emerald-200 hover:border-emerald-300' :
       task.urgency === 'not-important'        ? 'bg-slate-100 border-slate-300 hover:border-slate-400' :
       'bg-white border-slate-200/60 hover:border-blue-200'
     } ${task.isCompleted ? 'opacity-60' : ''}`}>
+      {defaultCollapsed && (
+        <button
+          onClick={() => setIsCollapsed(true)}
+          className="absolute top-3 right-3 p-1 text-slate-300 hover:text-slate-600 rounded-lg transition-colors z-10"
+        >
+          <ChevronDownIcon className="w-4 h-4 rotate-180" />
+        </button>
+      )}
       <div className="flex items-start gap-4">
         <input type="checkbox" checked={task.isCompleted} onChange={(e) => handleToggle('isCompleted', e.target.checked)} className="mt-1 h-5 w-5 rounded-md border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer transition-all" />
         <div className="flex-1">
@@ -223,6 +264,7 @@ const TaskCard = ({
             )}
             <button onClick={handleTitleEdit} className="p-1.5 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"><EditIcon className="w-4 h-4" /></button>
           </div>
+
 
           <div className="flex flex-wrap items-center gap-1.5 mt-2 mb-1">
             {isEditingTags ? (
@@ -339,20 +381,48 @@ const TaskCard = ({
 };
 
 const NonNegotiableTasks = ({ tasks, onUpdateTask }: any) => {
+    const handleAddToCalendar = (task: any) => {
+        if (!task.scheduledTime) {
+            const calendarUrl = new URL('https://www.google.com/calendar/render');
+            calendarUrl.searchParams.append('action', 'TEMPLATE');
+            calendarUrl.searchParams.append('text', task.text);
+            window.open(calendarUrl.toString(), '_blank', 'noopener,noreferrer');
+            return;
+        }
+        const [hours, minutes] = task.scheduledTime.split(':').map(Number);
+        const startTime = new Date(); startTime.setHours(hours, minutes, 0, 0);
+        const endTime = new Date(startTime.getTime() + (task.duration || 60) * 60 * 1000);
+        const toGoogleFormat = (date: Date) => date.toISOString().replace(/-|:|\.\d{3}/g, '');
+        const calendarUrl = new URL('https://www.google.com/calendar/render');
+        calendarUrl.searchParams.append('action', 'TEMPLATE');
+        calendarUrl.searchParams.append('text', task.text);
+        calendarUrl.searchParams.append('dates', `${toGoogleFormat(startTime)}/${toGoogleFormat(endTime)}`);
+        window.open(calendarUrl.toString(), '_blank', 'noopener,noreferrer');
+    };
+
     return (
-      <div className="space-y-3">
-        {tasks.map((task: any) => (
-          <div key={task.id} className="p-4 rounded-xl bg-slate-50 border border-slate-200/60 hover:bg-white hover:shadow-sm transition-all duration-200">
-            <div className="flex flex-col md:flex-row md:items-center gap-4 justify-between">
-              <div className="flex items-center gap-3">
-                  <input type="checkbox" checked={task.isCompleted} onChange={(e) => onUpdateTask({ ...task, isCompleted: e.target.checked })} className="h-5 w-5 rounded-md border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
-                  <p className={`font-bold text-slate-800 text-sm ${task.isCompleted ? 'line-through text-slate-400' : ''}`}>{task.text}</p>
-              </div>
-              <TimePicker12Hour value={task.scheduledTime || ''} onChange={(time) => onUpdateTask({ ...task, scheduledTime: time })} className="flex-shrink-0" />
-            </div>
-          </div>
-        ))}
-      </div>
+        <div className="space-y-3">
+            {tasks.map((task: any) => (
+                <div key={task.id} className="p-4 rounded-xl bg-slate-50 border border-slate-200/60 hover:bg-white hover:shadow-sm transition-all duration-200">
+                    <div className="flex flex-col md:flex-row md:items-center gap-3 justify-between">
+                        <div className="flex items-center gap-3">
+                            <input type="checkbox" checked={task.isCompleted} onChange={e => onUpdateTask({ ...task, isCompleted: e.target.checked })} className="h-5 w-5 rounded-md border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
+                            <p className={`font-bold text-slate-800 text-sm ${task.isCompleted ? 'line-through text-slate-400' : ''}`}>{task.text}</p>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                            <TimePicker12Hour value={task.scheduledTime} onChange={time => onUpdateTask({ ...task, scheduledTime: time })} />
+                            <button
+                                onClick={() => handleAddToCalendar(task)}
+                                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-600 font-bold text-xs hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-all"
+                            >
+                                <CalendarIcon className="w-3.5 h-3.5" />
+                                {task.scheduledTime ? 'Block' : 'Calendar'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ))}
+        </div>
     );
 };
 
@@ -371,11 +441,13 @@ const App = () => {
     const [lapsHistory, setLapsHistory] = useState<LapsData[]>([]);
     const [accountabilityHistory, setAccountabilityHistory] = useState<AccountabilityData[]>([]);
     
-    const NON_NEGOTIABLE_TASKS_BASE = [
-        { id: 'nn-prospecting', text: 'Prospecting Block', isIncomeGenerating: true, duration: 60 },
-        { id: 'nn-linkedin', text: 'LinkedIn Content & Engagement', isIncomeGenerating: false, duration: 60 },
+const NONNEGOTIABLETASKSBASE = [
+    { id: 'nn-prospecting', text: 'Prospecting Block', isIncomeGenerating: true, duration: 60 },
+    { id: 'nn-linkedin', text: 'LinkedIn Content & Engagement', isIncomeGenerating: false, duration: 60 },
+    { id: 'nn-meditation', text: 'Meditation', isIncomeGenerating: false, duration: 20 },
+    { id: 'nn-gym', text: 'Go to the Gym', isIncomeGenerating: false, duration: 60 },
     ];
-    const [nonNegotiableTasks, setNonNegotiableTasks] = useState<Task[]>(NON_NEGOTIABLE_TASKS_BASE.map(task => ({ ...task, isCompleted: false, scheduledTime: '', notes: '', description: '', source: 'manual' })));
+    const [nonNegotiableTasks, setNonNegotiableTasks] = useState<Task[]>(NONNEGOTIABLETASKSBASE.map(task => ({ ...task, isCompleted: false, scheduledTime: '', notes: '', description: '', source: 'manual' })));
     
     const [newTaskText, setNewTaskText] = useState('');
     const [newTaskDescription, setNewTaskDescription] = useState('');
@@ -524,7 +596,17 @@ const forecastStats = useMemo(() => {
             { key: 'accountability-history', setter: setAccountabilityHistory },
             { key: `timeboxing-dailyTodo_${todayStr}`, setter: setDailyTodo },
             { key: `timeboxing-topThree_${todayStr}`, setter: setTopThree },
-            { key: `timeboxing-nonNegotiable_${todayStr}`, setter: setNonNegotiableTasks },
+{ 
+  key: `timeboxing-nonNegotiable_${todayStr}`, 
+  setter: (savedTasks: any) => {
+    const merged = NONNEGOTIABLETASKSBASE.map((base: any) => {
+      const existing = savedTasks.find((t: any) => t.id === base.id);
+      return existing ?? { ...base, isCompleted: false, scheduledTime: '', notes: '', description: '', source: 'manual' };
+    });
+    setNonNegotiableTasks(merged);
+  }
+},
+
             { key: 'timeboxing-completedHistory', setter: setCompletedHistory }
         ];
 
@@ -743,7 +825,7 @@ const filteredVault = ideasVault.filter((idea: Task) =>
     }
 
     return (
-      <div className="min-h-screen bg-slate-50 font-sans pb-24 text-slate-800 selection:bg-blue-100">
+      <div className="min-h-screen bg-slate-200 font-sans pb-24 text-slate-800 selection:bg-blue-100">
         {/* HEADER */}
         <header className="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50 border-b border-slate-200/80 transition-all">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
@@ -934,7 +1016,7 @@ const filteredVault = ideasVault.filter((idea: Task) =>
                 <h2 className="text-xl font-black text-slate-800 tracking-tight">Top 3 Non-Negotiables</h2>
             </div>
             <div className="space-y-4">
-              {topThree.map(task => (<TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onDelete={() => handleDeleteTask(task.id, topThree, `timeboxing-topThree_${todayStr}`)} onDemoteToDaily={() => demoteToDailyFromTop(task.id)} onDemoteToDump={() => demoteToDumpFromTop(task.id)} isTopThree={true} />))}
+              {topThree.map(task => (<TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onDelete={() => handleDeleteTask(task.id, topThree, `timeboxing-topThree_${todayStr}`)} onDemoteToDaily={() => demoteToDailyFromTop(task.id)} onDemoteToDump={() => demoteToDumpFromTop(task.id)} isTopThree={true} defaultCollapsed={true} />))}
               {topThree.length < 3 && Array.from({ length: 3 - topThree.length }).map((_, i) => (
                   <div key={i} className="p-6 rounded-2xl border-2 border-dashed border-slate-200/60 bg-slate-50/50 flex flex-col items-center justify-center text-slate-400 gap-2">
                       <div className="w-8 h-8 rounded-full bg-white border border-slate-200 shadow-sm flex items-center justify-center text-xs font-bold text-slate-300">{i + 1 + topThree.length}</div>
@@ -944,7 +1026,8 @@ const filteredVault = ideasVault.filter((idea: Task) =>
             </div>
           </section>
 
-          {/* DAILY EXECUTION */}
+
+           {/* DAILY EXECUTION */}
           <section className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-200/60 transition-shadow hover:shadow-md">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
                 <div className="flex items-center gap-3">
@@ -974,7 +1057,7 @@ const filteredVault = ideasVault.filter((idea: Task) =>
                             key={task.id} task={task} onUpdate={handleUpdateTask} 
                             onDelete={() => handleDeleteTask(task.id, dailyTodo, `timeboxing-dailyTodo_${todayStr}`)} 
                             onPromoteToTop={() => promoteToTopFromDaily(task.id)} onDemoteToDump={() => demoteToDumpFromDaily(task.id)}
-                            isTopThree={false} 
+                            isTopThree={false} defaultCollapsed={true}
                         />
                     ))}
                 </div>
@@ -982,6 +1065,7 @@ const filteredVault = ideasVault.filter((idea: Task) =>
                 <div className="py-8 bg-slate-50 rounded-2xl border border-slate-200/50 border-dashed text-center text-slate-400 text-sm">
                     Daily list clear. Promote tasks from the Brain Dump below.
                 </div>
+
             )}
           </section>
 
