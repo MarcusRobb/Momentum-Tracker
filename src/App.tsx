@@ -1,4 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import type { Task, LapsData, AccountabilityData } from './types';
 import LapsTracker from './components/LapsTracker';
 import AccountabilityTracker from './components/AccountabilityTracker';
@@ -76,6 +79,30 @@ const exportAllData = (lapsHistory: any[], accountabilityHistory: any[], complet
     }
     downloadCSV(csvContent, `momentum-tracker-full-export-${timestamp}.csv`);
 };
+
+const SortableItem = ({ id, children }: { id: string, children: React.ReactNode }) => {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+        zIndex: isDragging ? 50 : undefined,
+    };
+    return (
+        <div ref={setNodeRef} style={style} className="relative">
+            <div {...attributes} {...listeners} className="absolute left-0 top-0 bottom-0 w-5 flex items-center justify-center cursor-grab active:cursor-grabbing touch-none z-10 opacity-0 hover:opacity-100 transition-opacity">
+                <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor" className="text-slate-300">
+                    <circle cx="2" cy="2" r="1.5"/><circle cx="8" cy="2" r="1.5"/>
+                    <circle cx="2" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/>
+                    <circle cx="2" cy="14" r="1.5"/><circle cx="8" cy="14" r="1.5"/>
+                </svg>
+            </div>
+            {children}
+        </div>
+    );
+};
+
+
 
 // --- COMPONENTS ---
 const Instructions = () => {
@@ -380,7 +407,9 @@ const TaskCard = ({
   );
 };
 
-const NonNegotiableTasks = ({ tasks, onUpdateTask }: any) => {
+const NonNegotiableTasks = ({ tasks, onUpdateTask, onReorder }: any) => {
+    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
     const handleAddToCalendar = (task: any) => {
         if (!task.scheduledTime) {
             const calendarUrl = new URL('https://www.google.com/calendar/render');
@@ -401,28 +430,30 @@ const NonNegotiableTasks = ({ tasks, onUpdateTask }: any) => {
     };
 
     return (
-        <div className="space-y-3">
-            {tasks.map((task: any) => (
-                <div key={task.id} className="p-4 rounded-xl bg-slate-50 border border-slate-200/60 hover:bg-white hover:shadow-sm transition-all duration-200">
-                    <div className="flex flex-col md:flex-row md:items-center gap-3 justify-between">
-                        <div className="flex items-center gap-3">
-                            <input type="checkbox" checked={task.isCompleted} onChange={e => onUpdateTask({ ...task, isCompleted: e.target.checked })} className="h-5 w-5 rounded-md border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
-                            <p className={`font-bold text-slate-800 text-sm ${task.isCompleted ? 'line-through text-slate-400' : ''}`}>{task.text}</p>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                            <TimePicker12Hour value={task.scheduledTime} onChange={time => onUpdateTask({ ...task, scheduledTime: time })} />
-                            <button
-                                onClick={() => handleAddToCalendar(task)}
-                                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-600 font-bold text-xs hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-all"
-                            >
-                                <CalendarIcon className="w-3.5 h-3.5" />
-                                {task.scheduledTime ? 'Block' : 'Calendar'}
-                            </button>
-                        </div>
-                    </div>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onReorder}>
+            <SortableContext items={tasks.map((t: any) => t.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-3">
+                    {tasks.map((task: any) => (
+                        <SortableItem key={task.id} id={task.id}>
+                            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/60 hover:bg-white hover:shadow-sm transition-all duration-200">
+                                <div className="flex flex-col md:flex-row md:items-center gap-3 justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <input type="checkbox" checked={task.isCompleted} onChange={e => onUpdateTask({ ...task, isCompleted: e.target.checked })} className="h-5 w-5 rounded-md border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
+                                        <p className={`font-bold text-slate-800 text-sm ${task.isCompleted ? 'line-through text-slate-400' : ''}`}>{task.text}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                        <TimePicker12Hour value={task.scheduledTime} onChange={time => onUpdateTask({ ...task, scheduledTime: time })} />
+                                        <button onClick={() => handleAddToCalendar(task)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-600 font-bold text-xs hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-all">
+                                            <CalendarIcon className="w-3.5 h-3.5" />{task.scheduledTime ? 'Block' : 'Calendar'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </SortableItem>
+                    ))}
                 </div>
-            ))}
-        </div>
+            </SortableContext>
+        </DndContext>
     );
 };
 
@@ -711,27 +742,28 @@ const handleUpdateTask = useCallback((updatedTask: Task) => {
     const taskLists = [
         { key: 'timeboxing-brainDump', state: brainDump, setter: setBrainDump },
         { key: `timeboxing-dailyTodo_${todayStr}`, state: dailyTodo, setter: setDailyTodo },
-        { key: `timeboxing-topThree_${todayStr}`, state: topThree, setter: setTopThree }
+        { key: `timeboxing-topThree_${todayStr}`, state: topThree, setter: setTopThree },
     ];
-
     if (updatedTask.isCompleted) {
         const archived = { ...updatedTask, completedAt: new Date().toISOString() };
         const newHistory = [archived, ...completedHistory];
-        setCompletedHistory(newHistory); cloudUpdate('timeboxing-completedHistory', newHistory);
-
+        setCompletedHistory(newHistory);
+        cloudUpdate('timeboxing-completedHistory', newHistory);
         taskLists.forEach(({ key, state, setter }) => {
             const filtered = state.filter(t => t.id !== updatedTask.id);
-            setter(filtered); cloudUpdate(key, filtered);
+            if (filtered.length !== state.length) { setter(filtered); cloudUpdate(key, filtered); }
         });
     } else {
         taskLists.forEach(({ key, state, setter }) => {
             if (state.some(t => t.id === updatedTask.id)) {
                 const mapped = state.map(t => t.id === updatedTask.id ? updatedTask : t);
-                setter(mapped); cloudUpdate(key, mapped);
+                setter(mapped);
+                cloudUpdate(key, mapped);
             }
         });
     }
 }, [brainDump, dailyTodo, topThree, completedHistory, todayStr]);
+
 
 const handleUpdateNonNegotiableTask = (updatedTask: Task) => {
     const updated = nonNegotiableTasks.map(t => t.id === updatedTask.id ? updatedTask : t);
@@ -763,8 +795,16 @@ const handleDeleteTask = (id: string, currentList: Task[], key: string) => {
 
     // --- PIPELINE LOGIC ---
     const promoteToDailyFromDump = (id: string) => { const t = brainDump.find(x => x.id === id); if (t) { const nd = [t, ...dailyTodo]; setDailyTodo(nd); cloudUpdate(`timeboxing-dailyTodo_${todayStr}`, nd); const nb = brainDump.filter(x => x.id !== id); setBrainDump(nb); cloudUpdate('timeboxing-brainDump', nb); } };
-    const promoteToTopFromDump = (id: string) => { if (topThree.length >= 3) return alert("Only 3!"); const t = brainDump.find(x => x.id === id); if (t) { const nt = [...topThree, t]; setTopThree(nt); cloudUpdate(`timeboxing-topThree_${todayStr}`, nt); const nb = brainDump.filter(x => x.id !== id); setBrainDump(nb); cloudUpdate('timeboxing-brainDump', nb); } };
-    const promoteToTopFromDaily = (id: string) => { if (topThree.length >= 3) return alert("Only 3!"); const t = dailyTodo.find(x => x.id === id); if (t) { const nt = [...topThree, t]; setTopThree(nt); cloudUpdate(`timeboxing-topThree_${todayStr}`, nt); const nd = dailyTodo.filter(x => x.id !== id); setDailyTodo(nd); cloudUpdate(`timeboxing-dailyTodo_${todayStr}`, nd); } };
+    const promoteToTopFromDump = (id: string) => { 
+    if (topThree.some(x => x.id === id)) return;
+    const t = brainDump.find(x => x.id === id); 
+    if (t) { const nt = [...topThree, t]; setTopThree(nt); cloudUpdate(`timeboxing-topThree_${todayStr}`, nt); const nb = brainDump.filter(x => x.id !== id); setBrainDump(nb); cloudUpdate('timeboxing-brainDump', nb); } 
+};
+    const promoteToTopFromDaily = (id: string) => { 
+    if (topThree.some(x => x.id === id)) return;
+    const t = dailyTodo.find(x => x.id === id); 
+    if (t) { const nt = [...topThree, t]; setTopThree(nt); cloudUpdate(`timeboxing-topThree_${todayStr}`, nt); const nd = dailyTodo.filter(x => x.id !== id); setDailyTodo(nd); cloudUpdate(`timeboxing-dailyTodo_${todayStr}`, nd); } 
+};
     const demoteToDailyFromTop = (id: string) => { const t = topThree.find(x => x.id === id); if (t) { const nd = [t, ...dailyTodo]; setDailyTodo(nd); cloudUpdate(`timeboxing-dailyTodo_${todayStr}`, nd); const nt = topThree.filter(x => x.id !== id); setTopThree(nt); cloudUpdate(`timeboxing-topThree_${todayStr}`, nt); } };
     const demoteToDumpFromTop = (id: string) => { const t = topThree.find(x => x.id === id); if (t) { const nb = [t, ...brainDump]; setBrainDump(nb); cloudUpdate('timeboxing-brainDump', nb); const nt = topThree.filter(x => x.id !== id); setTopThree(nt); cloudUpdate(`timeboxing-topThree_${todayStr}`, nt); } };
     const demoteToDumpFromDaily = (id: string) => { const t = dailyTodo.find(x => x.id === id); if (t) { const nb = [t, ...brainDump]; setBrainDump(nb); cloudUpdate('timeboxing-brainDump', nb); const nd = dailyTodo.filter(x => x.id !== id); setDailyTodo(nd); cloudUpdate(`timeboxing-dailyTodo_${todayStr}`, nd); } };
@@ -783,9 +823,40 @@ const handleDeleteTask = (id: string, currentList: Task[], key: string) => {
             if (!response.ok) throw new Error(`Webhook returned ${response.status}`);
             const data = await response.json() as { dailyTodo?: Task[]; topThree?: Task[] };
             if (data.dailyTodo) { setDailyTodo(data.dailyTodo); cloudUpdate(`timeboxing-dailyTodo_${todayStr}`, data.dailyTodo); }
-            if (data.topThree) { setTopThree(data.topThree); cloudUpdate(`timeboxing-topThree_${todayStr}`, data.topThree); }
+            if (data.topThree) {
+    const existingIds = new Set(topThree.map((t: any) => t.id));
+    const newTasks = data.topThree.filter((t: any) => !existingIds.has(t.id));
+    const merged = [...topThree, ...newTasks];
+    setTopThree(merged);
+    cloudUpdate(`timeboxing-topThree_${todayStr}`, merged);
+}
         } catch (err) { setAiError(`AI Prioritize failed.`); } finally { setIsAIPrioritizing(false); }
     };
+
+const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+const handleDragEnd = (event: any, list: Task[], setter: any, key: string) => {
+    const { active, over } = event;
+    if (active.id !== over?.id) {
+        const oldIndex = list.findIndex(t => t.id === active.id);
+        const newIndex = list.findIndex(t => t.id === over.id);
+        const newList = arrayMove(list, oldIndex, newIndex);
+        setter(newList);
+        cloudUpdate(key, newList);
+    }
+};
+
+const handleDragEndNonNeg = (event: any) => {
+    const { active, over } = event;
+    if (active.id !== over?.id) {
+        const oldIndex = nonNegotiableTasks.findIndex((t: any) => t.id === active.id);
+        const newIndex = nonNegotiableTasks.findIndex((t: any) => t.id === over.id);
+        const newList = arrayMove(nonNegotiableTasks, oldIndex, newIndex);
+        setNonNegotiableTasks(newList);
+        cloudUpdate(`timeboxing-nonNegotiable_${todayStr}`, newList);
+    }
+};
+
 
     const startNewDay = () => {
         if (window.confirm("End the day? Incomplete tasks return to Brain Dump.")) {
@@ -1016,13 +1087,24 @@ const filteredVault = ideasVault.filter((idea: Task) =>
                 <h2 className="text-xl font-black text-slate-800 tracking-tight">Top 3 Non-Negotiables</h2>
             </div>
             <div className="space-y-4">
-              {topThree.map(task => (<TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onDelete={() => handleDeleteTask(task.id, topThree, `timeboxing-topThree_${todayStr}`)} onDemoteToDaily={() => demoteToDailyFromTop(task.id)} onDemoteToDump={() => demoteToDumpFromTop(task.id)} isTopThree={true} defaultCollapsed={true} />))}
-              {topThree.length < 3 && Array.from({ length: 3 - topThree.length }).map((_, i) => (
-                  <div key={i} className="p-6 rounded-2xl border-2 border-dashed border-slate-200/60 bg-slate-50/50 flex flex-col items-center justify-center text-slate-400 gap-2">
-                      <div className="w-8 h-8 rounded-full bg-white border border-slate-200 shadow-sm flex items-center justify-center text-xs font-bold text-slate-300">{i + 1 + topThree.length}</div>
-                      <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Empty Priority Slot</span>
-                  </div>
-              ))}
+  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => handleDragEnd(e, topThree, setTopThree, `timeboxing-topThree_${todayStr}`)}>
+  <SortableContext items={topThree.map(t => t.id)} strategy={verticalListSortingStrategy}>
+    <div className="space-y-4">
+      {topThree.map(task => (
+        <SortableItem key={task.id} id={task.id}>
+          <TaskCard task={task} onUpdate={handleUpdateTask} onDelete={() => handleDeleteTask(task.id, topThree, `timeboxing-topThree_${todayStr}`)} onDemoteToDaily={() => demoteToDailyFromTop(task.id)} onDemoteToDump={() => demoteToDumpFromTop(task.id)} isTopThree={true} defaultCollapsed={true} />
+        </SortableItem>
+      ))}
+    </div>
+  </SortableContext>
+</DndContext>
+
+             {topThree.length === 0 && Array.from({ length: 3 }).map((_, i) => (
+    <div key={i} className="p-6 rounded-2xl border-2 border-dashed border-slate-200/60 bg-slate-50/50 flex flex-col items-center justify-center text-slate-400 gap-2">
+        <div className="w-8 h-8 rounded-full bg-white border border-slate-200 shadow-sm flex items-center justify-center text-xs font-bold text-slate-300">{i + 1}</div>
+        <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Empty Priority Slot</span>
+    </div>
+))}
             </div>
           </section>
 
@@ -1051,16 +1133,18 @@ const filteredVault = ideasVault.filter((idea: Task) =>
                 </div>
             </div>
             {filteredDailyTodo.length > 0 ? (
-                <div className="space-y-4">
-                    {filteredDailyTodo.map(task => (
-                        <TaskCard 
-                            key={task.id} task={task} onUpdate={handleUpdateTask} 
-                            onDelete={() => handleDeleteTask(task.id, dailyTodo, `timeboxing-dailyTodo_${todayStr}`)} 
-                            onPromoteToTop={() => promoteToTopFromDaily(task.id)} onDemoteToDump={() => demoteToDumpFromDaily(task.id)}
-                            isTopThree={false} defaultCollapsed={true}
-                        />
-                    ))}
-                </div>
+               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => handleDragEnd(e, dailyTodo, setDailyTodo, `timeboxing-dailyTodo_${todayStr}`)}>
+  <SortableContext items={dailyTodo.map(t => t.id)} strategy={verticalListSortingStrategy}>
+    <div className="space-y-4">
+      {filteredDailyTodo.map(task => (
+        <SortableItem key={task.id} id={task.id}>
+          <TaskCard task={task} onUpdate={handleUpdateTask} onDelete={() => handleDeleteTask(task.id, dailyTodo, `timeboxing-dailyTodo_${todayStr}`)} onPromoteToTop={() => promoteToTopFromDaily(task.id)} onDemoteToDump={() => demoteToDumpFromDaily(task.id)} isTopThree={false} defaultCollapsed={true} />
+        </SortableItem>
+      ))}
+    </div>
+  </SortableContext>
+</DndContext>
+
             ) : (
                 <div className="py-8 bg-slate-50 rounded-2xl border border-slate-200/50 border-dashed text-center text-slate-400 text-sm">
                     Daily list clear. Promote tasks from the Brain Dump below.
@@ -1075,7 +1159,7 @@ const filteredVault = ideasVault.filter((idea: Task) =>
                 <div className="p-2 bg-indigo-50 rounded-lg"><CalendarIcon className="w-5 h-5 text-indigo-600" /></div>
                 <h2 className="text-xl font-black text-slate-800 tracking-tight">System Habits</h2>
             </div>
-            <NonNegotiableTasks tasks={nonNegotiableTasks} onUpdateTask={handleUpdateNonNegotiableTask} />
+            <NonNegotiableTasks tasks={nonNegotiableTasks} onUpdateTask={handleUpdateNonNegotiableTask} onReorder={handleDragEndNonNeg} />
           </section>
 
           {/* MASTER BRAIN DUMP */}
@@ -1163,28 +1247,30 @@ const filteredVault = ideasVault.filter((idea: Task) =>
   </form>
 </div>
 
-            {showBrainDumpList && (
-                <div className="space-y-4 max-h-[600px] overflow-y-auto pr-3 custom-scrollbar">
-                  {filteredBrainDump.length > 0 ? filteredBrainDump.map(task => (
-                    <div key={task.id} className="flex items-start gap-3">
-                      {isSelectMode && <input type="checkbox" checked={selectedBrainDumpIds.has(task.id)} onChange={() => handleToggleSelectId(task.id)} className="mt-5 h-5 w-5 rounded-md text-blue-600 focus:ring-blue-500 cursor-pointer" />}
-                      <div className="flex-1 min-w-0">
-                          <TaskCard 
-                              task={task} onUpdate={handleUpdateTask} onDelete={() => handleDeleteTask(task.id, brainDump, 'timeboxing-brainDump')} 
-                              onPromoteToDaily={() => promoteToDailyFromDump(task.id)} onPromoteToTop={() => promoteToTopFromDump(task.id)}
-                              onSendToVault={() => handleSendToVault(task.id)} isTopThree={false} 
-                          />
-                      </div>
-                    </div>
-                  )) : (
-                    <div className="py-12 flex flex-col items-center justify-center text-slate-400">
-                        <CommandIcon className="w-12 h-12 mb-4 text-slate-200" />
-                        <p className="text-sm font-medium">{tagSearch ? "No captures match tag." : "Brain dump is empty."}</p>
-                    </div>
-                  )}
-                </div>
-            )}
-          </section>
+{showBrainDumpList && (
+    <div className="space-y-4 max-h-[600px] overflow-y-auto pr-3 custom-scrollbar">
+        {filteredBrainDump.length > 0 ? (
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => handleDragEnd(e, brainDump, setBrainDump, 'timeboxing-brainDump')}>
+                <SortableContext items={brainDump.map(t => t.id)} strategy={verticalListSortingStrategy}>
+       {filteredBrainDump.map(task => (
+    <SortableItem key={task.id} id={task.id}>
+        {isSelectMode && <input type="checkbox" checked={selectedBrainDumpIds.has(task.id)} onChange={() => handleToggleSelectId(task.id)} className="absolute left-6 top-5 h-5 w-5 rounded-md text-blue-600 focus:ring-blue-500 cursor-pointer z-20" />}
+        <TaskCard task={task} onUpdate={handleUpdateTask} onDelete={() => handleDeleteTask(task.id, brainDump, 'timeboxing-brainDump')} onPromoteToDaily={() => promoteToDailyFromDump(task.id)} onPromoteToTop={() => promoteToTopFromDump(task.id)} onSendToVault={() => handleSendToVault(task.id)} isTopThree={false} />
+    </SortableItem>
+))}
+
+                </SortableContext>
+            </DndContext>
+        ) : (
+            <div className="py-12 flex flex-col items-center justify-center text-slate-400">
+                <CommandIcon className="w-12 h-12 mb-4 text-slate-200" />
+                <p className="text-sm font-medium">{tagSearch ? "No captures match tag." : "Brain dump is empty."}</p>
+            </div>
+        )}
+    </div>
+)}
+  </section>
+
 
           {/* THE VAULT */}
           <div className="bg-slate-900 p-6 md:p-8 rounded-3xl shadow-xl border border-slate-800 relative overflow-hidden group">
@@ -1205,18 +1291,27 @@ const filteredVault = ideasVault.filter((idea: Task) =>
             </div>
             {showIdeasVault && (
               <div className="mt-8 pt-6 border-t border-slate-800 space-y-4 relative z-10">
-                {filteredVault.length > 0 ? filteredVault.map((idea) => (
-                  <div key={idea.id} className="bg-white/5 rounded-2xl p-4 border border-white/5 transition-all hover:bg-white/10">
-                    <TaskCard 
-                        task={idea} onUpdate={handleUpdateVaultTask} 
-                        onDelete={() => handleDeleteTask(idea.id, ideasVault, 'timeboxing-ideasVault')} 
-                        onDemoteToDump={() => handleCopyFromVault(idea.id)} isTopThree={false} 
-                    />
-                  </div>
-                )) : <p className="text-slate-500 text-sm text-center py-4">Vault is empty or no tag matches.</p>}
+                {filteredVault.length > 0 ? (
+                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => handleDragEnd(e, ideasVault, setIdeasVault, 'timeboxing-ideasVault')}>
+                        <SortableContext items={ideasVault.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                            {filteredVault.map((idea) => (
+                                <SortableItem key={idea.id} id={idea.id}>
+                                    <div className="bg-white/5 rounded-2xl p-4 border border-white/5 transition-all hover:bg-white/10">
+                                        <TaskCard
+                                            task={idea} onUpdate={handleUpdateVaultTask}
+                                            onDelete={() => handleDeleteTask(idea.id, ideasVault, 'timeboxing-ideasVault')}
+                                            onDemoteToDump={() => handleCopyFromVault(idea.id)} isTopThree={false}
+                                        />
+                                    </div>
+                                </SortableItem>
+                            ))}
+                        </SortableContext>
+                    </DndContext>
+                ) : <p className="text-slate-500 text-sm text-center py-4">Vault is empty or no tag matches.</p>}
               </div>
             )}
           </div>
+
 
           {/* COMPLETED HISTORY */}
           <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-200/60 transition-shadow hover:shadow-md">
