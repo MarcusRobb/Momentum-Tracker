@@ -308,36 +308,33 @@ const TaskCard = ({
             )}
           </div>
 
-          {/* EISENHOWER MATRIX */}
-          <div className="grid grid-cols-2 gap-2 mt-3">
-            {(
-              [
-                { value: 'urgent-important',     label: '⚡ Urgent + Important',     active: 'bg-yellow-300 text-yellow-900 border-yellow-400',     hover: 'hover:bg-yellow-50 hover:text-yellow-700' },
-                { value: 'urgent-not-important', label: '🔔 Urgent / Not Important', active: 'bg-purple-200 text-purple-900 border-purple-300',     hover: 'hover:bg-purple-50 hover:text-purple-700' },
-                { value: 'important',            label: '✅ Important',              active: 'bg-emerald-200 text-emerald-900 border-emerald-300', hover: 'hover:bg-emerald-50 hover:text-emerald-700' },
-                { value: 'not-important',        label: '🗑️ Not Important',         active: 'bg-slate-200 text-slate-600 border-slate-300',       hover: 'hover:bg-slate-100 hover:text-slate-600' },
-              ] as const
-            ).map(({ value, label, active, hover }) => {
-              const isSelected = task.urgency === value;
-              const allUrgencyTags = ['urgent-important', 'urgent-not-important', 'important', 'not-important'];
-              return (
-                <button
-                  key={value}
-                  onClick={() => {
-                    const newUrgency = isSelected ? undefined : value;
-                    const strippedTags = (task.tags || []).filter((t: string) => !allUrgencyTags.includes(t));
-                    const newTags = newUrgency ? [...strippedTags, newUrgency] : strippedTags;
-                    onUpdate({ ...task, urgency: newUrgency, tags: newTags });
-                  }}
-                  className={`py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg border transition-all ${
-                    isSelected ? `${active} shadow-sm` : `bg-slate-50 text-slate-400 border-slate-200 ${hover}`
-                  }`}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
+        {/* EISENHOWER MATRIX */}
+<div className="grid grid-cols-2 gap-2 mt-3">
+    {[
+        { label: '⚡ URGENT + IMPORTANT', value: 'urgent-important', color: 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100' },
+        { label: '⚠️ URGENT / NOT IMPORTANT', value: 'urgent-not-important', color: 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100' },
+        { label: '✅ IMPORTANT', value: 'important', color: 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100' },
+        { label: '🗑️ NOT IMPORTANT', value: 'not-important', color: 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100' },
+    ].map(btn => {
+        const URGENCY_TAGS = ['urgent-important', 'urgent-not-important', 'important', 'not-important'];
+        const isActive = (task.tags || []).includes(btn.value);
+        return (
+            <button
+                key={btn.value}
+                onClick={() => {
+                    const existingTags = (task.tags || []).filter((t: string) => !URGENCY_TAGS.includes(t));
+                    const newTags = isActive ? existingTags : [...existingTags, btn.value];
+                    onUpdate({ ...task, tags: newTags });
+                }}
+                className={`px-3 py-2 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all ${btn.color} ${isActive ? 'ring-2 ring-offset-1 ring-current shadow-sm' : 'opacity-60 hover:opacity-100'}`}
+            >
+                {btn.label}
+            </button>
+        );
+    })}
+</div>
+
+
 
           <div className="mt-3">
             <div className="flex items-center gap-2">

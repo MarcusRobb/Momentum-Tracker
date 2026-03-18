@@ -5,19 +5,21 @@ export interface SaleDetail {
 }
 
 export interface Task {
-  id: string;
-  text: string;
-  isCompleted: boolean;
-  isIncomeGenerating: boolean;
-  notes: string;
-  scheduledTime: string;
-  completedAt?: string;
-  duration?: number;
-  tags?: string[];
-  description?: string;
-  source?: 'manual' | 'hl_briefing' | 'claude_prioritiser';
-   urgency?: 'urgent-important' | 'urgent-not-important' | 'important' | 'not-important';
+  id: string
+  text: string
+  isCompleted: boolean
+  isIncomeGenerating: boolean
+  notes: string
+  scheduledTime: string
+  completedAt?: string
+  duration?: number
+  tags?: string[]
+  description?: string
+  source?: 'manual' | 'hlbriefing' | 'claudeprioritiser'
+  urgency?: 'urgent-important' | 'urgent-not-important' | 'important' | 'not-important'
 }
+
+
 
 export interface LapsData {
   date: string;
