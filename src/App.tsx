@@ -274,23 +274,17 @@ const TaskCard = ({
       <div className="flex items-start gap-4">
         <input type="checkbox" checked={task.isCompleted} onChange={(e) => handleToggle('isCompleted', e.target.checked)} className="mt-1 h-5 w-5 rounded-md border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer transition-all" />
         <div className="flex-1">
-          <div className="flex items-start gap-3">
-            {isEditingTitle ? (
-              <input type="text" value={tempTitle} onChange={(e) => setTempTitle(e.target.value)} onBlur={handleTitleEdit} onKeyDown={(e) => { if (e.key === 'Enter') handleTitleEdit(); if (e.key === 'Escape') { setTempTitle(task.text); setIsEditingTitle(false); }}} className="flex-1 font-bold text-slate-800 bg-slate-50 border border-blue-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500" autoFocus />
-            ) : (
-              <div className="flex-1">
-                <div className={`-mx-1 px-2 py-0.5 rounded-lg inline-block ${
-                  task.urgency === 'urgent-important'     ? 'bg-yellow-300' :
-                  task.urgency === 'urgent-not-important' ? 'bg-purple-200' :
-                  task.urgency === 'important'            ? 'bg-emerald-200' :
-                  task.urgency === 'not-important'        ? 'bg-slate-200' : ''
-                }`}>
-                  <p className={`font-bold text-slate-800 text-[15px] ${task.isCompleted ? 'line-through text-slate-500' : ''}`}>{task.text}</p>
-                </div>
-              </div>
-            )}
-            <button onClick={handleTitleEdit} className="p-1.5 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"><EditIcon className="w-4 h-4" /></button>
-          </div>
+        <div className="flex items-start gap-3">
+    {isEditingTitle ? (
+        <input type="text" value={tempTitle} onChange={(e) => setTempTitle(e.target.value)} onBlur={handleTitleEdit} onKeyDown={(e) => { if (e.key === 'Enter') handleTitleEdit(); if (e.key === 'Escape') { setTempTitle(task.text); setIsEditingTitle(false); }}} className="flex-1 font-bold text-slate-800 bg-slate-50 border border-blue-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500" autoFocus />
+    ) : (
+        <div className="flex-1 flex items-center gap-2 group/title">
+            <p className={`font-bold text-slate-800 text-[15px] ${task.isCompleted ? 'line-through text-slate-500' : ''}`}>{task.text}</p>
+            <button onClick={handleTitleEdit} className="p-1 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors opacity-0 group-hover/title:opacity-100 flex-shrink-0"><EditIcon className="w-3.5 h-3.5" /></button>
+        </div>
+    )}
+</div>
+
 
 
           <div className="flex flex-wrap items-center gap-1.5 mt-2 mb-1">
