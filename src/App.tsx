@@ -382,12 +382,12 @@ const TaskCard = ({
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Action Points & Outcomes</label>
                 <textarea placeholder="What defines 'done' for this task?" value={task.notes || ''} onChange={(e) => handleToggle('notes', e.target.value)} rows={2} className="block w-full text-sm p-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
               </div>
-              <button onClick={() => handleToggle('isIncomeGenerating', !task.isIncomeGenerating)} className={`w-full flex items-center justify-center gap-2 px-4 py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-all ${task.isIncomeGenerating ? 'bg-amber-100 text-amber-700 border border-amber-200 shadow-sm' : 'bg-slate-50 text-slate-400 border border-slate-200 hover:bg-slate-100'}`}>
-                <DollarSignIcon className="w-4 h-4" /><span>Income-Generating Activity</span>
-              </button>
+             
             </div>
           )}
-
+            <button onClick={() => handleToggle('isIncomeGenerating', !task.isIncomeGenerating)} className={`w-full flex items-center justify-center gap-2 px-4 py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-all ${task.isIncomeGenerating ? 'bg-emerald-100 text-amber-700 border border-amber-200 shadow-sm' : 'bg-slate-50 text-slate-400 border border-slate-200 hover:bg-slate-100'}`}>
+                <DollarSignIcon className="w-4 h-4" /><span>Income-Generating Activity</span>
+              </button>
           <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
             <div className="flex flex-wrap items-center gap-1.5">
               {onPromoteToDaily && <button onClick={onPromoteToDaily} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-100 rounded-md hover:bg-blue-100 hover:border-blue-200 transition-colors"><ArrowUpCircleIcon className="w-3.5 h-3.5" />To Daily</button>}
@@ -403,6 +403,7 @@ const TaskCard = ({
     </div>
   );
 };
+
 
 const NonNegotiableTasks = ({ tasks, onUpdateTask, onReorder }: any) => {
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -480,6 +481,7 @@ const NONNEGOTIABLETASKSBASE = [
     const [newTaskText, setNewTaskText] = useState('');
     const [newTaskDescription, setNewTaskDescription] = useState('');
     const [newTaskTags, setNewTaskTags] = useState('');
+    const [newTaskIsIG, setNewTaskIsIG] = useState(false)
     const [newTaskUrgency, setNewTaskUrgency] = useState<'urgent-important' | 'urgent-not-important' | 'important' | 'not-important' | undefined>(undefined);
 
     
@@ -728,11 +730,13 @@ const handleAddTask = (e: React.FormEvent) => {
     const newTask: Task = { 
         id: generateUUID(), text: newTaskText, description: newTaskDescription, tags: tagsArray,
         urgency: newTaskUrgency,
-        isCompleted: false, isIncomeGenerating: false, notes: '', scheduledTime: '', duration: 60, source: 'manual' 
+        isCompleted: false, isIncomeGenerating: newTaskIsIG, notes: '', scheduledTime: '', duration: 60, source: 'manual' 
     };
     const updated = [newTask, ...brainDump];
     setBrainDump(updated); cloudUpdate('timeboxing-brainDump', updated);
     setNewTaskText(''); setNewTaskDescription(''); setNewTaskTags(''); setNewTaskUrgency(undefined);
+    setNewTaskIsIG(false)
+
 };
 
 const handleUpdateTask = useCallback((updatedTask: Task) => {
@@ -1237,9 +1241,18 @@ const filteredVault = ideasVault.filter((idea: Task) =>
         type="text" value={newTaskTags} onChange={(e) => setNewTaskTags(e.target.value)} placeholder="Add tags (e.g., content, admin)..." 
         className="flex-grow rounded-xl border-none bg-slate-50/50 hover:bg-slate-50 p-4 text-sm font-medium outline-none focus:bg-white transition-all shadow-inner" 
       />
-      <button type="submit" className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl shadow-lg shadow-blue-500/30 font-black tracking-wide uppercase text-xs active:scale-95 transition-all">
-        Capture
-      </button>
+      <div className="flex items-center gap-3">
+    <button
+        type="button"
+        onClick={() => setNewTaskIsIG(!newTaskIsIG)}
+        className={`flex items-center gap-2 px-4 py-4 rounded-xl border text-xs font-black uppercase tracking-wider transition-all ${newTaskIsIG ? 'bg-emerald-100 text-amber-700 border-amber-200 shadow-sm' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'}`}
+    >
+        <DollarSignIcon className="w-4 h-4" />
+        <span className="hidden sm:inline">Income-Generating</span>
+    </button>
+    <button type="submit" className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl shadow-lg shadow-blue-500/30 font-black tracking-wide uppercase text-xs active:scale-95 transition-all">Capture</button>
+</div>
+
     </div>
   </form>
 </div>
