@@ -6,9 +6,11 @@ interface Props {
     accountabilityHistory: AccountabilityData[];
     setAccountabilityHistory: React.Dispatch<React.SetStateAction<AccountabilityData[]>>;
     lapsHistory: LapsData[];
+    habitsHistory: {date: string, completed: string[], total: number}[];
 }
 
-const AccountabilityTracker: React.FC<Props> = ({ accountabilityHistory, setAccountabilityHistory, lapsHistory }) => {
+const AccountabilityTracker: React.FC<Props> = ({ accountabilityHistory, setAccountabilityHistory, lapsHistory, habitsHistory }) => {
+
     const [weekOffset, setWeekOffset] = useState(0);
     const [showReports, setShowReports] = useState(false);
 
@@ -365,8 +367,109 @@ const AccountabilityTracker: React.FC<Props> = ({ accountabilityHistory, setAcco
                                 </div>
                             )}
                         </section>
+                            {/* SYSTEM HABITS */}
+<section>
+    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+        <TargetIcon className="w-4 h-4" /> System Habits
+    </h3>
 
-                        {/* CONVERSION FUNNEL */}
+    {/* LAST 7 DAYS */}
+    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Last 7 Days</p>
+    <div className="overflow-x-auto mb-8">
+        <table className="w-full text-sm">
+            <thead>
+                <tr className="text-slate-400 text-[10px] font-bold uppercase tracking-wider border-b border-slate-100">
+                    <td className="pb-2 pr-4">Habit</td>
+                    {Array.from({ length: 7 }, (_, i) => {
+                        const d = new Date();
+                        d.setDate(d.getDate() - (6 - i));
+                        return (
+                            <td key={i} className="pb-2 px-2 text-center">
+                                {d.toLocaleDateString('en-AU', { weekday: 'short' })}<br />
+                                <span className="text-[9px]">{d.getDate()}</span>
+                            </td>
+                        );
+                    })}
+                    <td className="pb-2 pl-4 text-right">7d</td>
+                </tr>
+            </thead>
+            <tbody>
+                {[
+                    { id: 'nn-prospecting', label: 'Prospecting' },
+                    { id: 'nn-linkedin', label: 'LinkedIn' },
+                    { id: 'nn-meditation', label: 'Meditation' },
+                    { id: 'nn-gym', label: 'Gym' },
+                ].map(habit => {
+                    const dates = Array.from({ length: 7 }, (_, i) => {
+                        const d = new Date();
+                        d.setDate(d.getDate() - (6 - i));
+                        return d.toISOString().split('T')[0];
+                    });
+                    const weekTotal = dates.filter(date => habitsHistory.find(h => h.date === date)?.completed.includes(habit.id)).length;
+                    return (
+                        <tr key={habit.id} className="border-b border-slate-50">
+                            <td className="py-3 pr-4 font-bold text-slate-700 whitespace-nowrap">{habit.label}</td>
+                            {dates.map(date => {
+                                const done = habitsHistory.find(h => h.date === date)?.completed.includes(habit.id);
+                                return (
+                                    <td key={date} className="py-3 px-2 text-center">
+                                        <span className={`inline-flex w-7 h-7 rounded-lg text-xs font-black items-center justify-center ${done ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-300'}`}>
+                                            {done ? '✓' : '—'}
+                                        </span>
+                                    </td>
+                                );
+                            })}
+                            <td className="py-3 pl-4 text-right font-black text-slate-700">{weekTotal}/7</td>
+                        </tr>
+                    );
+                })}
+            </tbody>
+        </table>
+    </div>
+
+    {/* THIS MONTH */}
+    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">This Month</p>
+    <table className="w-full text-sm">
+        <thead>
+            <tr className="text-slate-400 text-[10px] font-bold uppercase tracking-wider border-b border-slate-100">
+                <td className="pb-2 pr-4">Habit</td>
+                <td className="pb-2 text-center">Days Done</td>
+                <td className="pb-2 text-center">Days Tracked</td>
+                <td className="pb-2 text-right">Hit Rate</td>
+            </tr>
+        </thead>
+        <tbody>
+            {[
+                { id: 'nn-prospecting', label: 'Prospecting' },
+                { id: 'nn-linkedin', label: 'LinkedIn' },
+                { id: 'nn-meditation', label: 'Meditation' },
+                { id: 'nn-gym', label: 'Gym' },
+            ].map(habit => {
+                const today = new Date();
+                const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+                const todayStr = today.toISOString().split('T')[0];
+                const monthEntries = habitsHistory.filter(h => h.date >= startOfMonth && h.date <= todayStr);
+                const daysDone = monthEntries.filter(h => h.completed.includes(habit.id)).length;
+                const daysTracked = monthEntries.length;
+                const hitRate = daysTracked > 0 ? Math.round((daysDone / daysTracked) * 100) : 0;
+                return (
+                    <tr key={habit.id} className="border-b border-slate-50">
+                        <td className="py-3 pr-4 font-bold text-slate-700">{habit.label}</td>
+                        <td className="py-3 text-center font-black text-emerald-600">{daysDone}</td>
+                        <td className="py-3 text-center text-slate-400 font-bold">{daysTracked}</td>
+                        <td className="py-3 text-right">
+                            <span className={`px-2 py-1 rounded-lg text-xs font-black ${hitRate >= 80 ? 'bg-emerald-100 text-emerald-700' : hitRate >= 50 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-600'}`}>
+                                {hitRate}%
+                            </span>
+                        </td>
+                    </tr>
+                );
+            })}
+        </tbody>
+    </table>
+</section>
+
+                                                {/* CONVERSION FUNNEL */}
                         <section>
                             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-6">This Week's Conversion Funnel</h3>
                             <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-center bg-slate-50 p-6 rounded-2xl border border-slate-200/60">

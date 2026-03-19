@@ -427,10 +427,15 @@ const NonNegotiableTasks = ({ tasks, onUpdateTask, onReorder }: any) => {
                 <div className="space-y-3">
                     {tasks.map((task: any) => (
                         <SortableItem key={task.id} id={task.id}>
-                            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/60 hover:bg-white hover:shadow-sm transition-all duration-200">
+                            <div className={`p-4 rounded-xl border transition-all duration-200 ${task.isCompleted ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200/60 hover:bg-white hover:shadow-sm'}`}>
                                 <div className="flex flex-col md:flex-row md:items-center gap-3 justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <input type="checkbox" checked={task.isCompleted} onChange={e => onUpdateTask({ ...task, isCompleted: e.target.checked })} className="h-5 w-5 rounded-md border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
+                                    <div className="flex items-center gap-3 flex-1">
+                                        <button
+                                            onClick={() => onUpdateTask({ ...task, isCompleted: !task.isCompleted })}
+                                            className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl font-black text-xs uppercase tracking-wider transition-all ${task.isCompleted ? 'bg-emerald-500 text-white shadow-sm' : 'bg-white border-2 border-slate-200 text-slate-400 hover:border-emerald-400 hover:text-emerald-600'}`}
+                                        >
+                                            {task.isCompleted ? '✓ Done' : 'Mark Done'}
+                                        </button>
                                         <p className={`font-bold text-slate-800 text-sm ${task.isCompleted ? 'line-through text-slate-400' : ''}`}>{task.text}</p>
                                     </div>
                                     <div className="flex items-center gap-2 flex-shrink-0">
@@ -463,6 +468,8 @@ const App = () => {
     const [ideasVault, setIdeasVault] = useState<Task[]>([]);
     const [lapsHistory, setLapsHistory] = useState<LapsData[]>([]);
     const [accountabilityHistory, setAccountabilityHistory] = useState<AccountabilityData[]>([]);
+    const [habitsHistory, setHabitsHistory] = useState<{date: string, completed: string[], total: number}[]>([])
+
     
 const NONNEGOTIABLETASKSBASE = [
     { id: 'nn-prospecting', text: 'Prospecting Block', isIncomeGenerating: true, duration: 60 },
@@ -528,18 +535,45 @@ const NONNEGOTIABLETASKSBASE = [
     const streak = last7Days.filter(day =>
       day.appointment && day.spokeToPerson && day.taughtSomeone && day.madeOffer).length;
     const igTasksRemaining = [...topThree, ...dailyTodo].filter(t => !t.isCompleted && t.isIncomeGenerating).length;
+        const last7Dates = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(today)
+        d.setDate(today.getDate() - i)
+        return d.toISOString().split('T')[0]
+    })
+    const HABIT_IDS = ['nn-prospecting', 'nn-linkedin', 'nn-meditation', 'nn-gym'];
+    const HABIT_LABELS: Record<string, string> = {
+        'nn-prospecting': 'Prospecting',
+        'nn-linkedin': 'LinkedIn',
+        'nn-meditation': 'Meditation',
+        'nn-gym': 'Gym',
+    };
+    const todayHabitsEntry = habitsHistory.find(h => h.date === todayStr2) || { completed: [] as string[], total: 4 };
+const habitsTodayStatus = HABIT_IDS.reduce<Record<string, boolean>>((acc, id) => {
+        acc[id] = todayHabitsEntry.completed.includes(id);
+        return acc;
+        }, {});
+    const weeklyHabitCounts = HABIT_IDS.reduce<Record<string, number>>((acc, id) => {
+        acc[id] = habitsHistory.filter(h => last7Dates.includes(h.date) && h.completed.includes(id)).length;
+        return acc;
+          }, {});
 
     return {
-      streak,
-      totalLeads: thisWeekLeads,
-      totalSales: thisWeekSales,
-      totalMrr: thisWeekMrr,
-      igTasksRemaining,
-      wowLeads: calcWoW(thisWeekLeads, lastWeekLeads),
-      wowSales: calcWoW(thisWeekSales, lastWeekSales),
-      wowMrr: calcWoW(thisWeekMrr, lastWeekMrr),
+        streak,
+        totalLeads: thisWeekLeads,
+        totalSales: thisWeekSales,
+        totalMrr: thisWeekMrr,
+        igTasksRemaining,
+        habitsTodayStatus,
+        weeklyHabitCounts,
+        HABIT_IDS,
+        HABIT_LABELS,
+        wowLeads: calcWoW(thisWeekLeads, lastWeekLeads),
+        wowSales: calcWoW(thisWeekSales, lastWeekSales),
+        wowMrr: calcWoW(thisWeekMrr, lastWeekMrr),
     };
-}, [accountabilityHistory, lapsHistory, topThree, dailyTodo]);
+
+}, [accountabilityHistory, lapsHistory, topThree, dailyTodo, habitsHistory]);
+
 
 const forecastStats = useMemo(() => {
   const today = new Date();
@@ -761,8 +795,18 @@ const handleUpdateTask = useCallback((updatedTask: Task) => {
 
 
 const handleUpdateNonNegotiableTask = (updatedTask: Task) => {
-    const updated = nonNegotiableTasks.map(t => t.id === updatedTask.id ? updatedTask : t);
-    setNonNegotiableTasks(updated); cloudUpdate(`timeboxing-nonNegotiable_${todayStr}`, updated);
+    const updated = nonNegotiableTasks.map(t => t.id === updatedTask.id ? updatedTask : t)
+    setNonNegotiableTasks(updated)
+    cloudUpdate(`timeboxing-nonNegotiable-${todayStr}`, updated)
+    // Record in habits history
+    const completedIds = updated.filter(t => t.isCompleted).map(t => t.id)
+    const existingIdx = habitsHistory.findIndex(h => h.date === todayStr)
+    const newEntry = { date: todayStr, completed: completedIds, total: updated.length }
+    const newHistory = existingIdx >= 0
+        ? habitsHistory.map((h, i) => i === existingIdx ? newEntry : h)
+        : [...habitsHistory, newEntry]
+    setHabitsHistory(newHistory)
+    cloudUpdate('habits-history', newHistory)
 };
 
 const handleUpdateVaultTask = (updatedTask: Task) => {
@@ -969,7 +1013,7 @@ const filteredVault = ideasVault.filter((idea: Task) =>
         <SparklesIcon className="w-5 h-5 text-amber-500" />
         <span className="text-2xl font-black text-white">${weeklyStats.totalMrr.toLocaleString()}</span>
       </div>
-      {weeklyStats.wowMrr !== null && (
+           {weeklyStats.wowMrr !== null && (
         <p className={`text-[10px] font-black mt-2 ${weeklyStats.wowMrr >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
           {weeklyStats.wowMrr >= 0 ? '▲' : '▼'} {Math.abs(weeklyStats.wowMrr)}% vs last wk
         </p>
@@ -978,6 +1022,7 @@ const filteredVault = ideasVault.filter((idea: Task) =>
 
   </div>
   {/* IG Priorities Open — below the grid */}
+
   {weeklyStats.igTasksRemaining > 0 && (
     <div className="mt-5 relative z-10 bg-amber-500/10 border border-amber-500/20 rounded-xl px-5 py-3 flex items-center gap-3">
       <SparklesIcon className="w-4 h-4 text-amber-400 flex-shrink-0" />
@@ -986,6 +1031,22 @@ const filteredVault = ideasVault.filter((idea: Task) =>
       </p>
     </div>
   )}
+
+  {/* TODAY'S HABITS */}
+  <div className="mt-4 relative z-10 grid grid-cols-2 md:grid-cols-4 gap-3">
+      {weeklyStats.HABIT_IDS.map((id: string) => (
+          <div key={id} className={`p-4 rounded-2xl border transition-all ${weeklyStats.habitsTodayStatus[id] ? 'bg-emerald-500/20 border-emerald-500/30' : 'bg-white/5 border-white/10'}`}>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">{weeklyStats.HABIT_LABELS[id]}</p>
+              <div className="flex items-center justify-between">
+                  <span className={`text-sm font-black ${weeklyStats.habitsTodayStatus[id] ? 'text-emerald-400' : 'text-slate-500'}`}>
+                      {weeklyStats.habitsTodayStatus[id] ? '✓ Done' : '— Pending'}
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-500">{weeklyStats.weeklyHabitCounts[id]}/7d</span>
+              </div>
+          </div>
+      ))}
+  </div>
+
 {/* 30-DAY MRR FORECAST & GAP ANALYSIS */}
 <div className="mt-6 relative z-10 bg-white/5 border border-white/10 rounded-2xl p-6">
   
@@ -1344,7 +1405,13 @@ const filteredVault = ideasVault.filter((idea: Task) =>
 
           {/* TRACKERS */}
           <LapsTracker lapsHistory={lapsHistory} setLapsHistory={(v) => { setLapsHistory(v); cloudUpdate('lapsHistory', v); }} />
-          <AccountabilityTracker accountabilityHistory={accountabilityHistory} setAccountabilityHistory={(v) => { setAccountabilityHistory(v); cloudUpdate('accountability-history', v); }} lapsHistory={lapsHistory} />
+          <AccountabilityTracker
+    accountabilityHistory={accountabilityHistory}
+    setAccountabilityHistory={setAccountabilityHistory}
+    lapsHistory={lapsHistory}
+    habitsHistory={habitsHistory}
+/>
+
         </main>
       </div>
     );
