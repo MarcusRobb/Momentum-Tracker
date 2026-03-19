@@ -854,8 +854,9 @@ const handleDeleteTask = (id: string, currentList: Task[], key: string) => {
     const MAKE_WEBHOOK_URL = import.meta.env.VITE_MAKE_WEBHOOK_URL as string | undefined;
     const handleAIPrioritize = async () => {
         if (!MAKE_WEBHOOK_URL) { setAiError('Webhook URL not configured.'); return; }
-        const incompleteTasks = brainDump.filter(t => !t.isCompleted);
-        if (incompleteTasks.length === 0) { setAiError('Your Brain Dump is empty.'); return; }
+        const incompleteTasks = dailyTodo.filter(t => !t.isCompleted);
+if (incompleteTasks.length === 0) { setAiError('Your Daily Execution list is empty.'); return; }
+
         setIsAIPrioritizing(true); setAiError(null);
         try {
             const response = await fetch(MAKE_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tasks: incompleteTasks }) });
