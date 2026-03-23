@@ -723,12 +723,37 @@ const forecastStats = useMemo(() => {
     const handleToggleSelectId = (id: string) => { setSelectedBrainDumpIds(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; }); };
     const handleSelectAll = () => { if (selectedBrainDumpIds.size === brainDump.length) setSelectedBrainDumpIds(new Set()); else setSelectedBrainDumpIds(new Set(brainDump.map(t => t.id))); };
     const handleExportCSV = () => {
-        const tasks = selectedBrainDumpIds.size > 0 ? brainDump.filter(t => selectedBrainDumpIds.has(t.id)) : brainDump;
-        const headers = ['Task Name','Notes','Scheduled Time (HH:MM)','Duration (mins)','Income Generating (true/false)'];
-        const rows = tasks.map(t => [escapeCsvField(t.text||''),escapeCsvField(t.notes||''),escapeCsvField(t.scheduledTime||''),String(t.duration||''),String(t.isIncomeGenerating)].join(','));
-        downloadCSV([headers.join(','),...rows].join('\n'), `brain-dump-${new Date().toISOString().split('T')[0]}.csv`);
-    };
-    const handleDownloadTemplate = () => {
+  const tasks = selectedBrainDumpIds.size > 0
+    ? brainDump.filter(t => selectedBrainDumpIds.has(t.id))
+    : brainDump;
+  const headers = 'Task Name,Description,Tags,Urgency,Notes,Scheduled Time,Duration (mins),Income Generating';
+  const rows = tasks.map(t =>
+    [escapeCsvField(t.text), escapeCsvField(t.description || ''), escapeCsvField((t.tags || []).join(';')), escapeCsvField(t.urgency || ''), escapeCsvField(t.notes || ''), escapeCsvField(t.scheduledTime || ''), String(Math.round((t.duration || 0) / 60)), String(t.isIncomeGenerating)].join(',')
+  );
+  downloadCSV([headers, ...rows].join('\n'), `brain-dump-${new Date().toISOString().split('T')[0]}.csv`);
+};
+
+const handleExportDailyExecution = () => {
+  const allTasks = [...topThree.map(t => ({...t, section: 'Top 3'})), ...dailyTodo.map(t => ({...t, section: 'Daily Execution'}))];
+  if (allTasks.length === 0) { alert('Daily Execution is empty.'); return; }
+  const headers = 'Section,Task Name,Description,Tags,Urgency,Scheduled Time,Duration (mins),Income Generating,Completed,Notes';
+  const rows = allTasks.map((t: any) =>
+    [escapeCsvField(t.section), escapeCsvField(t.text), escapeCsvField(t.description || ''), escapeCsvField((t.tags || []).join(';')), escapeCsvField(t.urgency || ''), escapeCsvField(t.scheduledTime || ''), String(Math.round((t.duration || 0) / 60)), String(t.isIncomeGenerating), String(t.isCompleted), escapeCsvField(t.notes || '')].join(',')
+  );
+  downloadCSV([headers, ...rows].join('\n'), `daily-execution-${new Date().toISOString().split('T')[0]}.csv`);
+};
+
+const handleExportVault = () => {
+  if (ideasVault.length === 0) { alert('The Vault is empty.'); return; }
+  const headers = 'Task Name,Description,Tags,Urgency,Notes';
+  const rows = ideasVault.map(t =>
+    [escapeCsvField(t.text), escapeCsvField(t.description || ''), escapeCsvField((t.tags || []).join(';')), escapeCsvField(t.urgency || ''), escapeCsvField(t.notes || '')].join(',')
+  );
+  downloadCSV([headers, ...rows].join('\n'), `vault-${new Date().toISOString().split('T')[0]}.csv`);
+};
+
+const handleDownloadTemplate = () => {
+
         const headers = ['Task Name','Notes','Scheduled Time (HH:MM)','Duration (mins)','Income Generating (true/false)'];
         downloadCSV([headers.join(','),'Example Task 1,Some action points here,09:00,60,false','Example Task 2,Follow up with client,14:00,30,true'].join('\n'), 'brain-dump-template.csv');
     };
@@ -1172,6 +1197,9 @@ const filteredVault = ideasVault.filter((idea: Task) =>
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-blue-50 rounded-lg"><ListTodoIcon className="w-5 h-5 text-blue-600" /></div>
                     <h2 className="text-xl font-black text-slate-800 tracking-tight">Daily Execution</h2>
+                    <button onClick={handleExportDailyExecution} className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold rounded-xl bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 transition-all shadow-sm">
+  <DownloadIcon className="w-3.5 h-3.5" /> CSV
+</button>
                 <button
                     onClick={handleAIPrioritize} disabled={isAIPrioritizing || dailyTodo.length === 0}
                     className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-black rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md active:scale-95 transition-all"
@@ -1353,9 +1381,13 @@ const filteredVault = ideasVault.filter((idea: Task) =>
                         type="text" placeholder="Search Vault..." value={vaultSearch} onChange={(e) => setVaultSearch(e.target.value)}
                         className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-10 pr-4 text-sm text-white outline-none focus:ring-2 focus:ring-purple-500/50"
                     />
-                </div>
+                            </div>
+                <button onClick={handleExportVault} className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold rounded-xl bg-white/10 border border-white/20 text-slate-300 hover:bg-white/20 transition-all shadow-sm">
+                  <DownloadIcon className="w-3.5 h-3.5" /> CSV
+                </button>
             </div>
             {showIdeasVault && (
+
               <div className="mt-8 pt-6 border-t border-slate-800 space-y-4 relative z-10">
                 {filteredVault.length > 0 ? (
                     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => handleDragEnd(e, ideasVault, setIdeasVault, 'timeboxing-ideasVault')}>

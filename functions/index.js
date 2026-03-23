@@ -24,7 +24,7 @@ exports.addTopThreeTask = onRequest(async (req, res) => {
     } = req.body;
 
     const today = date_added || new Date().toISOString().split("T")[0];
-    const docKey = `timeboxing-topThree${today}`;
+    const docKey = `timeboxing-topThree_${today}`;
     const uid = "yvggs05n0AR0yBMVtTjHQEibpLv1";
 
     const docRef = admin.firestore()
