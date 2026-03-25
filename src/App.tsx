@@ -887,7 +887,7 @@ if (incompleteTasks.length === 0) { setAiError('Your Daily Execution list is emp
             const response = await fetch(MAKE_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tasks: incompleteTasks }) });
             if (!response.ok) throw new Error(`Webhook returned ${response.status}`);
             const data = await response.json() as { dailyTodo?: Task[]; topThree?: Task[] };
-            if (data.dailyTodo) { setDailyTodo(data.dailyTodo); cloudUpdate(`timeboxing-dailyTodo_${todayStr}`, data.dailyTodo); }
+           // AI scoring written to ai_briefing sheet via Make — do not overwrite local dailyTodo
             if (data.topThree) {
     const existingIds = new Set(topThree.map((t: any) => t.id));
     const newTasks = data.topThree.filter((t: any) => !existingIds.has(t.id));
