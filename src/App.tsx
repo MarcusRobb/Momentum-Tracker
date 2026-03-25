@@ -827,8 +827,6 @@ const handleAddTask = (e: React.FormEvent) => {
 };
 
 
-};
-
 const handleUpdateTask = useCallback((updatedTask: Task) => {
     const taskLists = [
         { key: 'timeboxing-brainDump', state: brainDump, setter: setBrainDump },
