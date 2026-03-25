@@ -787,8 +787,45 @@ const handleAddTask = (e: React.FormEvent) => {
     };
     const updated = [newTask, ...brainDump];
     setBrainDump(updated); cloudUpdate('timeboxing-brainDump', updated);
+
+    // Fire-and-forget Brain Dump webhook
+    const brainDumpWebhookUrl = import.meta.env.VITE_BRAIN_DUMP_WEBHOOK_URL as string | undefined;
+    if (brainDumpWebhookUrl) {
+      const now = new Date();
+      const startOfYear = new Date(now.getFullYear(), 0, 1);
+      const weekNumber = Math.ceil(
+        ((now.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7
+      );
+      fetch(brainDumpWebhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          task_id: newTask.id,
+          task_text: newTask.text,
+          description: newTask.description ?? '',
+          section: 'Brain Dump',
+          status: 'Active',
+          income_generating: newTask.isIncomeGenerating ?? false,
+          scheduled_time: '',
+          duration_mins: 60,
+          action_notes: '',
+          is_completed: false,
+          completed_at: '',
+          moved_to_vault: false,
+          week_number: weekNumber,
+          month: now.toLocaleString('default', { month: 'long' }),
+          year: now.getFullYear(),
+          date_added: now.toISOString(),
+          event: 'task_added',
+        }),
+      }).catch(() => {});
+    }
+
     setNewTaskText(''); setNewTaskDescription(''); setNewTaskTags(''); setNewTaskUrgency(undefined);
     setNewTaskIsIG(false)
+
+};
+
 
 };
 
