@@ -775,14 +775,14 @@ const handleDownloadTemplate = () => {
         reader.readAsText(file); e.target.value='';
     };
 
-  // --- TASK ACTIONS ---
+// --- TASK ACTIONS ---
 const handleAddTask = (e: React.FormEvent) => {
     e.preventDefault();
     if (newTaskText.trim() === '') return;
     const tagsArray = newTaskTags.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
     const newTask: Task = { 
         id: generateUUID(), text: newTaskText, description: newTaskDescription, tags: tagsArray,
-        urgency: newTaskUrgency,
+        ...(newTaskUrgency ? { urgency: newTaskUrgency } : {}),
         isCompleted: false, isIncomeGenerating: newTaskIsIG, notes: '', scheduledTime: '', duration: 60, source: 'manual' 
     };
     const updated = [newTask, ...brainDump];
