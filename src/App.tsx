@@ -229,8 +229,11 @@ const TaskCard = ({
       return (
         <div
           className={`flex items-center gap-3 px-4 py-3 rounded-2xl bg-white border border-slate-200/60 shadow-sm hover:shadow-md hover:border-blue-200 cursor-pointer transition-all ${task.isCompleted ? 'opacity-60' : ''}`}
-          onClick={(e) => { if ((e.target as HTMLElement).tagName !== 'INPUT') setIsCollapsed(false) }}
-        >
+          onClick={(e) => {
+  if ((e.target as HTMLElement).tagName !== 'INPUT' && !(e.target as HTMLElement).closest('button'))
+    setIsCollapsed(false);
+}}>
+      
           <input
             type="checkbox"
             checked={task.isCompleted}
@@ -250,6 +253,23 @@ const TaskCard = ({
               </div>
             )}
           </div>
+          <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+  {onDemoteToDaily && (
+    <button onClick={onDemoteToDaily} className="flex items-center gap-1 px-2 py-1 text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-100 rounded-md hover:bg-blue-100 transition-colors whitespace-nowrap">
+      <ArrowDownCircleIcon className="w-3 h-3" /> To Daily
+    </button>
+  )}
+  {onPromoteToTop && (
+    <button onClick={onPromoteToTop} className="flex items-center gap-1 px-2 py-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-md hover:bg-emerald-100 transition-colors whitespace-nowrap">
+      <ArrowUpCircleIcon className="w-3 h-3" /> Top 3
+    </button>
+  )}
+  {onDemoteToDump && (
+    <button onClick={onDemoteToDump} className="flex items-center gap-1 px-2 py-1 text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200 rounded-md hover:bg-slate-200 transition-colors whitespace-nowrap">
+      <ArrowDownCircleIcon className="w-3 h-3" /> Dump
+    </button>
+  )}
+</div>
           <ChevronDownIcon className="w-4 h-4 text-slate-400 flex-shrink-0" />
         </div>
       )
@@ -921,8 +941,14 @@ if (incompleteTasks.length === 0) { setAiError('Your Daily Execution list is emp
         try {
             const response = await fetch(MAKE_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tasks: incompleteTasks }) });
             if (!response.ok) throw new Error(`Webhook returned ${response.status}`);
-            const data = await response.json() as { dailyTodo?: Task[]; topThree?: Task[] };
-           // AI scoring written to ai_briefing sheet via Make — do not overwrite local dailyTodo
+            let data: { dailyTodo?: Task[], topThree?: Task[] } = {};
+try {
+  const text = await response.text();
+  if (text && text.trim().startsWith('{')) data = JSON.parse(text);
+} catch {
+  // Webhook responded OK but returned no parseable JSON — treat as success
+}
+// AI scoring written to aibriefing sheet via Make - do not overwrite local dailyTodo
             if (data.topThree) {
     const existingIds = new Set(topThree.map((t: any) => t.id));
     const newTasks = data.topThree.filter((t: any) => !existingIds.has(t.id));
@@ -958,19 +984,24 @@ const handleDragEndNonNeg = (event: any) => {
 };
 
 
-    const startNewDay = () => {
-        if (window.confirm("End the day? Incomplete tasks return to Brain Dump.")) {
-          const incomplete = [...topThree.filter(t => !t.isCompleted), ...dailyTodo.filter(t => !t.isCompleted)];
-          if (incomplete.length > 0) {
-            const stripped = incomplete.map(t => ({ ...t, scheduledTime: '', notes: '', isIncomeGenerating: false }));
-            const newDump = [...stripped, ...brainDump];
-            setBrainDump(newDump); cloudUpdate('timeboxing-brainDump', newDump);
-          }
-          setTopThree([]); cloudUpdate(`timeboxing-topThree_${todayStr}`, []);
-          setDailyTodo([]); cloudUpdate(`timeboxing-dailyTodo_${todayStr}`, []);
-          setTimeout(() => window.location.reload(), 100);
-        }
-    };
+  const startNewDay = async () => {
+  if (window.confirm('End the day? Incomplete tasks return to Brain Dump.')) {
+    const incomplete = [...topThree.filter(t => !t.isCompleted), ...dailyTodo.filter(t => !t.isCompleted)];
+    if (incomplete.length > 0) {
+      const stripped = incomplete.map(t => ({...t, scheduledTime: '', notes: '', isIncomeGenerating: false}));
+      const newDump = [...stripped, ...brainDump];
+      setBrainDump(newDump);
+      await cloudUpdate('timeboxing-brainDump', newDump);
+    }
+    setTopThree([]);
+    await cloudUpdate(`timeboxing-topThree${todayStr}`, []);
+    setDailyTodo([]);
+    await cloudUpdate(`timeboxing-dailyTodo${todayStr}`, []);
+    const resetNonNeg = nonNegotiableTasks.map((t: any) => ({...t, isCompleted: false, scheduledTime: ''}));
+    setNonNegotiableTasks(resetNonNeg);
+    await cloudUpdate(`timeboxing-nonNegotiable${todayStr}`, resetNonNeg);
+  }
+};
 
  // --- FILTERS ---
 const filteredBrainDump = brainDump.filter((t: Task) => tagSearch === '' || (t.tags && t.tags.some((tag: string) => tag.toLowerCase().includes(tagSearch.toLowerCase()))));
@@ -1242,6 +1273,15 @@ const filteredVault = ideasVault.filter((idea: Task) =>
                     <SparklesIcon className="w-3.5 h-3.5" /> {isAIPrioritizing ? 'Thinking...' : 'AI Prioritize'}
                 </button>      
                 </div>
+
+                {aiError && (
+  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 font-medium flex items-center gap-2 w-full">
+    <span>⚠️</span>
+    <span className="flex-1">{aiError}</span>
+    <button onClick={() => setAiError(null)} className="text-red-400 hover:text-red-600 font-bold ml-auto">✕</button>
+  </div>
+)}
+
                 <div className="relative w-full md:w-64">
                     <input 
                         type="text" 
@@ -1320,7 +1360,6 @@ const filteredVault = ideasVault.filter((idea: Task) =>
               </div>
             </div>
             
-            {aiError && <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 font-medium">{aiError}</div>}
 
        {/* CAPTURE FORM */}
 <div className="bg-white border border-blue-100 rounded-2xl p-6 mb-8 shadow-sm relative overflow-hidden">
